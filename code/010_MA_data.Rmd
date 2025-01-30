@@ -590,7 +590,8 @@ func_alluvial(data = df_q_ndvi_, indicator_n_min = indicator_n_min, width_my = w
 ### * Coefficient-based outcomes ---
 
 ```{r - function}
-tool_selected
+
+# tool_selected
 
 
 ###' subset papers that examined `exposure_type_i`
@@ -598,12 +599,13 @@ tool_selected
 
 func_exp_subset <- function(df, exposure_type_i, mh_tool) {
   
-  ## get paper id
+  ##' Filter 1. get paper id based on selected exposure type; studies will be filtered out 
+  ##'     if the `exposure_type` column is NA
   exp_sub <- df_exp_l %>%
     dplyr::filter(exposure_type %in% exposure_type_i)
   exp_sub_id <- unique(exp_sub$id) %>% sort()
 
-  ## subset based paper id
+  ##' Filter 2. further subset based on selected tools
   exp_sub_df <- df %>%
     dplyr::filter(id %in% exp_sub_id) %>%
     dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
@@ -766,6 +768,37 @@ save(mh_tool, exposure_type_i, effect_size_ind_i, exp_sub_df, file = f)
 f <- gsub('RData', 'rds', f); f
 saveRDS(exp_sub_df, file = f)
 ```
+#### - PHQ
+```{r}
+mh_tool <- c('PHQ')
+
+
+## test 
+df_test <- df %>%
+  # dplyr::filter(id %in% exp_sub_id) %>%
+  dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
+  as.data.frame()
+
+
+
+exp_sub_df <- func_exp_subset(df = df, exposure_type_i = exposure_type_i, mh_tool = mh_tool)
+exp_sub_df %>%
+  group_by(effect_size_indices) %>% count(effect_size_indices)
+
+
+sub_phq <- exp_sub_df
+
+## save for later use
+f <- paste0('./data/0301-MA-input/', 'sub_', paste(mh_tool, sep = '', collapse = '_'), '_obs.RData'); f
+# save(mh_tool, exposure_type_i, effect_size_ind_i, exp_sub_df, file = f)
+# 
+# f <- gsub('RData', 'rds', f); f
+# saveRDS(exp_sub_df, file = f)
+```
+
+
+
+#### - GAD
 
 
 
