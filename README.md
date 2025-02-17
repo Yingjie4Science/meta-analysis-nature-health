@@ -42,7 +42,7 @@ All analysis code are deposited in the `code` folder.
 *Users can refer to the detailed annotations in the main scripts below to execute the code.*
 
 ```
-000_load_Extraction.Rmd               # Load raw data
+000_load_Extraction.Rmd               # Load raw data, save paper list for sys review
 001_mini-review.Rmd                   # Systematic review analysis
 009_Quality_Assessment.RMD            # Quality assessment
 010_MA_data.Rmd                       # Format data for meta-analysis

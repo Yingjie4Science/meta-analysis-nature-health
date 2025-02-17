@@ -203,20 +203,54 @@ dd.gsheet2c_w %>% group_by(id) %>% tally()
 ```
 
 
-```{r - save as rds 📁, include=FALSE}
+```{r - save as csv 📁, include=FALSE}
 # names(dd)
 unique(dd$Reviewer)
 
 
 source('./code/func_add_reviewer_id.R')
 
-df <- func_add_reviewer_id(data = dd) %>%
+
+## for data from Covidence ---------------------------------------------------------------
+de <- func_add_reviewer_id(data = dd) %>%
   ## keep one reviewer's data based on priority setting
   arrange(id, Reviewer_id, desc(date)) %>%
   dplyr::distinct(id, .keep_all = T) %>%
-  ## then, we remove those papers that were labeled 'Not' meeting the criteria
-  dplyr::filter(!meet_criteria %in% c('No')) %>%
   as.data.frame()
+
+### save as SM 
+de_sm <- de %>%
+  select(1:40) %>%
+  
+  dplyr::rename(
+    'exposure_type'   = 'Nature exposure type',
+    'nature_type'     = "General category of urban nature",
+    'nature_quantity' = "Nature quantity measure metric",
+    "n_participants"  = "Total number of participants",
+    "City" = "City and state/province  in which the study conducted"
+                  ) %>%
+  dplyr::rename_with(~ 'if_standardized', matches("Does this paper employ standardized")) %>%
+  dplyr::rename_with(~ 'average_age', matches("Average age ")) %>%
+  dplyr::rename_with(~ 'male_percent', matches("Percentage of \\*male\\* participants")) %>%
+  dplyr::rename_with(~ 'duration_value', matches("Duration of actual nature exposure")) %>%
+  dplyr::rename_with(~ 'duration_unit', matches("The unit of time")) %>%
+  ## remove some columns 
+  dplyr::select(-id, -c(Season:ncol(.))) %>%
+  dplyr::select(-matches("Description of the|Reviewer|meet_criteria|duration|human habitat|Year|Buffer|variable type|measurement scales|Study design")) %>%
+  as.data.frame()
+names(de_sm)
+
+##
+f <- './data/review_278532_included_references for systematic review.csv'
+readr::write_csv(x = de_sm, file = f)
+```
+
+
+```{r - save as rds 📁, include=FALSE}
+### for further analysis
+df <- de %>%
+  ## then, we remove those papers that were labeled 'Not' meeting the criteria
+  dplyr::filter(!meet_criteria %in% c('No'))
 
 
 ## for data from gsheet ------------------------------------------------------------------
