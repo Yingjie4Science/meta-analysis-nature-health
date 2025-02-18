@@ -80,6 +80,8 @@ csv <- "review_278532_20240104172827.csv"     # 2023-12-11, 38 consensus done, a
 csv <- "review_278532_20240809075246.csv"     # 2024-08-08, added STAI
 csv <- 'review_278532_20240813041935.csv'     # 2024-08-09, added SVS
 csv <- "review_278532_20240819074110.csv"     # 2024-08-13, added DASS-21
+csv <- 'review_278532_20250218104233.csv'     # 2025-02-17, R1
+csv <- 'review_278532_20250218154809.csv'     # 2025-02-17, R1, fix reviewer names in Covidence
 
 
 t <- basename(csv) %>% gsub('review_278532_', '', .) %>%

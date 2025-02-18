@@ -263,9 +263,18 @@ func_ggsave(fname = fname, w = w, h = h)
 
 
 
+## include the top 20 most used tools in plot and analysis -------------------------------
+top_n_select <- dt.tool.design_clean %>%
+  dplyr::distinct(Tool, .keep_all = T) %>%
+  dplyr::slice_max(order_by = Tool_sum, n = 20, with_ties = T) %>%
+  # arrange(desc(Tool_sum)) %>%
+  # head(20) %>%
+  as.data.frame()
+  
 dt.tool.design_clean %>%
   # dplyr::filter(Tool_sum > 5) %>%
-  dplyr::slice_max(order_by = Tool_sum, n = 18*2, with_ties = T) %>%
+  dplyr::filter(Tool %in% unique(top_n_select$Tool)) %>%
+  
   ggplot(., aes(
     x = reorder(eval(parse(text = 'Tool')), Tool_sum),
     y = n,
