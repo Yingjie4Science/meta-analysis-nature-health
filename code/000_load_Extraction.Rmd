@@ -243,7 +243,7 @@ de_sm <- de %>%
 names(de_sm)
 
 ##
-f <- './data/review_278532_included_references for systematic review.csv'
+f <- './data/included_papers_for_systematic_review.csv'
 readr::write_csv(x = de_sm, file = f)
 ```
 
