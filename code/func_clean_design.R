@@ -30,11 +30,14 @@ func_clean_design <- function(data, column_name, aggregate = F) {
         # !!column_name := gsub("\\- Green roof/wall|\\- Shrub\\/scrub", "", !!sym(column_name)),
         !!column_name := case_when(
           !!sym(column_name) %in% c('Cross sectional study', 'Longitudinal cohort study', 'Longitudinal panel study') ~ "Observational",
-          !!sym(column_name) %in% c('Randomised controlled trial', 
-                                    'Non-randomised experimental study',
-                                    'Uncontrolled before-after study', 
-                                    'experiment', ## ?? these inputs should be corrected 
-                                    'Quasi-experimental study') ~ "Experimental",
+          # !!sym(column_name) %in% c('Randomised controlled trial', 
+          #                           'Randomised controlled trial (RCT) - parallel',
+          #                           'RCT - crossover',
+          #                           'Non-randomised experimental study',
+          #                           'Uncontrolled before-after study', 
+          #                           'experiment', ## ?? these inputs should be corrected 
+          #                           'Quasi-experimental study') ~ "Experimental",
+          str_detect(!!sym(column_name), regex("controlled trial|RCT|Uncontrolled before|experiment|experimental", ignore_case = TRUE)) ~ "Experimental",
           TRUE ~ !!sym(column_name)),
 
         !!column_name := trimws(!!sym(column_name)),
