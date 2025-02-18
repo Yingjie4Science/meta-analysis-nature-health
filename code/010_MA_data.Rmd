@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ### To clear your environment
-# remove(list = ls())
+remove(list = ls())
 
 
 ## Load common packages
@@ -197,6 +197,12 @@ cols_keep <- c('Indicator', 'Tools', 'nature_type',  'nature_quantity', 'exposur
                'average_age_mean', 'age_group') 
 
 
+## save the pre-processed raw data 
+f <- paste0("./data/0302-MA-output/", "df_cleaned.RDS")
+saveRDS(object = df, file = f)
+
+
+
 ## To add study design tags in Covidence
 df_design <- df %>%
   dplyr::select(1:3, study_design) %>%
@@ -242,6 +248,11 @@ df_exp <- df %>%
 
 ## unify exposure names
 f <- 'https://docs.google.com/spreadsheets/d/11oUNNjsmzC4wvYwcE8Zm_qavww0D6Twxl8UoPve1WOE/edit?usp=sharing'
+
+# # Re-authenticate with the correct scope
+# gs4_auth(scopes = "https://www.googleapis.com/auth/spreadsheets")
+# Authenticate with appropriate scope
+
 exposure_tier <- googlesheets4::read_sheet(f, sheet = 'nature_exposure_channels', range = 'A:D') %>%
   dplyr::select(-exposure_type_t3) %>%
   as.data.frame()
@@ -402,7 +413,7 @@ func_alluvial(data = df_exp_tool_flow, indicator_n_min = 5, width_my = width_my,
 
 
 ```{r selected tools ---------------}
-### only include the top 3 MH tools ------------------------------------------------------
+### only include the top n MH tools ------------------------------------------------------
 tool_selected <- c('GHQ-12', 'PANAS', 'POMS', 
                    'STAI', 'SVS',
                    'SF-12', 'SF-36', 'WEMWBS', 'WHO-5',
@@ -438,6 +449,76 @@ func_alluvial(data = df_exp_tool_flow3, indicator_n_min = 5, width_my = width_my
               labele_small = 5,
               show_y_ticks = F, 
               filename.prefix = '', filename.postfix = paste0('tool', n_tool, '_exposure'))
+```
+
+
+```{r ~ included studies for MA in the MS}
+### only include the top n MH tools ------------------------------------------------------
+source('./code/_parameters.R')
+# to load `tool_selected_rct`
+n_tool_rct <- length(unique(tool_selected_rct)); n_tool_rct
+
+
+### load geocoded city data
+df_cities <- readRDS('./data/dt_city_geocoded.rds') %>%
+  select(id, City) %>%
+  mutate(id = as.character(id))
+
+
+### load qa data
+f <- paste0(dir.output, 'qa_exp_data.csv')
+df_qa <- read_csv(f, show_col_types = F) %>%
+  select(id, 5:ncol(.)) %>%
+  mutate(id = gsub('#', '', id),
+         id = as.character(id))
+
+
+### prepare data as SM or to share
+df_ma_sm <- df_exp_l_toolL %>%
+  ## filter selected tools
+  dplyr::filter(Tool %in% tool_selected_rct) %>%
+  ## filter study design
+  dplyr::filter(!study_design %in% c('Cross sectional study', 'Observational')) %>%
+  dplyr::filter(str_detect(study_design, 'Longitudinal', negate = T)) %>%
+  dplyr::filter(!id %in% c('1968')) %>% ## a cross-sectional study
+  ## remove some columns 
+  dplyr::select(-matches("Reviewer|meet_criteria|duration|nature_experience|nature_quantity")) %>%
+  dplyr::select(-c(Tools, male_percent, average_age)) %>%
+  ## add city data
+  left_join(., df_cities, by = 'id') %>%
+  select(1:Country, City, everything()) %>%
+  ## add qa data
+  left_join(., df_qa, by = 'id') %>%
+  as.data.frame()
+
+
+## save data for sharing 
+f <- './data/included_papers_for_MA.csv'
+readr::write_csv(x = df_ma_sm, file = f)
+
+  
+## unique papers
+df_ma_sm_unique <- df_ma_sm %>%
+  dplyr::distinct(id, .keep_all = T)
+
+cat('\n\n There are', nrow(df_ma_sm_unique), 'papers were included for MA.\n')
+```
+
+
+```{r - data check, eval=FALSE, include=FALSE}
+## double-check with the included 84 studies in quality assessment (qa) ------------------
+f <- './data/0302-MA-output/gsheet_qa_experimental_studies.CVS'
+df_ma_qa <- readr::read_csv(f, show_col_types = F) %>%
+  dplyr::mutate(id = gsub('#', '', id)) %>%
+  dplyr::filter(Tool %in% tool_selected_rct) %>%
+  # dplyr::filter(str_detect(Tool, paste(tool_selected_rct, collapse = '|') )) %>%
+  as.data.frame()
+
+
+## compare and double-check 
+df_ma_sm_check <- merge(x = df_ma_sm_unique %>% select(1:2, 4, Tool), 
+                        y = df_ma_qa, 
+                        by = 'id', all = T)
 ```
 
 
