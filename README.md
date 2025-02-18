@@ -33,8 +33,8 @@ All the data that support the findings of this study are publicly available. The
 
 ```         
  data
-  |-- included_papers_for_systematic_review.csv  ## for systematic review - 466 papers
-  |-- included_papers_for_MA.csv                 ## papers for meta-analysis -- 78 papers
+  |-- included_papers_for_systematic_review.csv  ## for systematic review, 466 papers
+  |-- included_papers_for_MA.csv                 ## papers for meta-analysis, 78 papers
   |-- 
   
 ```
