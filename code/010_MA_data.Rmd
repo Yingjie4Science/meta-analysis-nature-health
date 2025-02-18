@@ -62,10 +62,9 @@ source('./code/func_ggsave.R')
 
 # Data
 
-## Load data from Covidence
+## Format data from Covidence
 
 ```{r}
-
 ## load data 
 fs <- list.files(path = "./data/0301-MA-input/", pattern = '^df_covidenceFull', full.names = T); 
 # fs;
@@ -77,8 +76,28 @@ f1 <- fs[(length(fs)-2)]; f1
 f2o1 <- fs[(length(fs)-1)]; f2o1;
 f2o2 <- fs[(length(fs)-0)]; f2o2;
 
+
+## 1. load data from Covidence -----------------------------------------------------------
 df_1 <- readRDS(file = f1) 
 
+
+## 2. load data from google sheet --------------------------------------------------------
+df_2o1 <- readRDS(file = f2o1) %>%
+  func_clean_nature_type(data = ., column_name = 'nature_type') %>%
+  func_clean_nature_quant(data = ., column_name = 'nature_quantity') %>%
+  dplyr::mutate(id = gsub('#', '', id),
+                id = trimws(id)) %>%
+  as.data.frame()
+
+df_2o2 <- readRDS(file = f2o2) %>%
+  func_clean_nature_type(data = ., column_name = 'nature_type') %>%
+  func_clean_nature_quant(data = ., column_name = 'nature_quantity') %>%
+  dplyr::mutate(id = gsub('#', '', id),
+                id = trimws(id)) %>%
+  as.data.frame()
+
+
+## 3. pre-clean Covidence data -----------------------------------------------------------
 df <- df_1 %>%
   dplyr::rename(
     'exposure_type'   = 'Nature exposure type',
@@ -116,6 +135,8 @@ df <- df_1 %>%
   dplyr::mutate(exposure_type = gsub("Other: |Other:", "", exposure_type)) %>%
   dplyr::mutate(exposure_type = gsub("\\s*\\([^\\)]+\\)", "", exposure_type)) %>% # remove text within parenthesis
   
+  ## clean `study_design` column if there is only one entry in each cell
+  # func_clean_design(data = ., column_name = 'study_design', aggregate = T) %>%
   dplyr::mutate(
     study_design = case_when(
       study_design == 'Randomised controlled trial (RCT)' ~ 'RCT',
@@ -185,20 +206,18 @@ df <- df_1 %>%
       TRUE ~ 'Older adults'),
     age_group = factor(age_group, levels = c('Adolescents', 'Young adults', 'Adults', 'Older adults'))
     ) %>%
-  
   as.data.frame()
+
+
 # names(df)
-
-## selected variables for further analysis
-cols_keep <- c('Indicator', 'Tools', 'nature_type',  'nature_quantity', 'exposure_type',
-               "study_design", 
-               'duration_mins', 'duration_group', 
-               'male_percent_mean', 'gender_group', 
-               'average_age_mean', 'age_group') 
+# unique(df$effect_size_indices) %>% sort()
+```
 
 
+
+```{r save the pre-processed data}
 ## save the pre-processed raw data 
-f <- paste0("./data/0302-MA-output/", "df_cleaned.RDS")
+f <- paste0(dir.output, "df_cleaned.RDS")
 saveRDS(object = df, file = f)
 
 
@@ -210,77 +229,11 @@ df_design <- df %>%
     id = paste0("#", id)
     ) %>%
   arrange(study_design)
-writexl::write_xlsx(x = df_design, path = paste0("./data/0301-MA-input/", "df_study_design.xlsx"))
+writexl::write_xlsx(x = df_design, path = paste0(dir.output, "df_study_design.xlsx"))
 
-
-## load data from google sheet 
-df_2o1 <- readRDS(file = f2o1) %>%
-  func_clean_nature_type(data = ., column_name = 'nature_type') %>%
-  func_clean_nature_quant(data = ., column_name = 'nature_quantity') %>%
-  dplyr::mutate(id = gsub('#', '', id),
-                id = trimws(id)) %>%
-  as.data.frame()
-
-df_2o2 <- readRDS(file = f2o2) %>%
-  func_clean_nature_type(data = ., column_name = 'nature_type') %>%
-  func_clean_nature_quant(data = ., column_name = 'nature_quantity') %>%
-  dplyr::mutate(id = gsub('#', '', id),
-                id = trimws(id)) %>%
-  as.data.frame()
-
-unique(df$effect_size_indices) %>% sort()
 ```
 
 
-## Clean data
-
-```{r}
-
-## selected variables for further analysis
-cols_keep2 <- c("duration_value", "duration_unit", 'duration_mins', 'male_percent', 'average_age')
-
-df_exp <- df %>%
-  dplyr::select(1:7, any_of(cols_keep), matches(paste(cols_keep2, collapse="|"))) %>%
-  ## clean text in `exposure_type`
-  dplyr::filter(!is.na(exposure_type)) %>%
-  as.data.frame()
-
-
-## unify exposure names
-f <- 'https://docs.google.com/spreadsheets/d/11oUNNjsmzC4wvYwcE8Zm_qavww0D6Twxl8UoPve1WOE/edit?usp=sharing'
-
-# # Re-authenticate with the correct scope
-# gs4_auth(scopes = "https://www.googleapis.com/auth/spreadsheets")
-# Authenticate with appropriate scope
-
-exposure_tier <- googlesheets4::read_sheet(f, sheet = 'nature_exposure_channels', range = 'A:D') %>%
-  dplyr::select(-exposure_type_t3) %>%
-  as.data.frame()
-
-
-df_exp_l <- df_exp %>% 
-  ## expand `exposure_type` if there are > 1 exposure types in a study
-  expand_col_to_long(data = ., target_col = 'exposure_type') %>%
-  ## clean the messy text data due to manual entry 
-  func_clean_exposure(data = ., column_name = 'exposure_type') %>%
-  dplyr::mutate(
-    # exposure_type1 = ifelse(str_detect(exposure_type, regex('duration', ignore_case = T)), 'Time spent in nature', exposure_type),
-    exposure_type = ifelse(grepl(x = exposure_type, 'duration|Spending hour|Time spent', ignore.case = T), 
-                           'Duration in nature', exposure_type),
-    ) %>%
-  as.data.frame() %>%
-  left_join(., y = exposure_tier, by = 'exposure_type') %>%
-  # merge(x=., y = exposure_tier, by = 'exposure_type', all.x = T) %>%
-  dplyr::rename('exposure_type_t1' = 'exposure_type') %>%
-  
-  ## to decide which tier name for the next step analysis
-  dplyr::rename('exposure_type'    = 'exposure_type_t2') %>%
-  dplyr::select(1:exposure_type_t1, exposure_type, everything())  %>%
-  as.data.frame()
-```
-
-
-### stats
 
 ```{r stats for MS}
 
@@ -325,6 +278,8 @@ unique(df.c$Country) %>%
 ```
 
 
+
+
 ```{r **To-do**}
 ```
   [] 6686 is missing in the data for POMS 
@@ -334,7 +289,62 @@ unique(df.c$Country) %>%
   [] need to separate "single-group pretest-posttest design"(= 1ba) and "independent-groups pretest-posttest design" (= 2ba)
   
 
+
+## Reshape data for stats
+
+### stats for MS
+
 ```{r exposure}
+
+## selected variables for further analysis
+cols_keep <- c('Indicator', 'Tools', 'nature_type',  'nature_quantity', 'exposure_type',
+               "study_design", 
+               'duration_mins', 'duration_group', 
+               'male_percent_mean', 'gender_group', 
+               'average_age_mean', 'age_group') 
+
+cols_keep2 <- c("duration_value", "duration_unit", 'duration_mins', 'male_percent', 'average_age')
+
+df_exp <- df %>%
+  dplyr::select(1:7, any_of(cols_keep), matches(paste(cols_keep2, collapse="|"))) %>%
+  ## clean text in `exposure_type`
+  dplyr::filter(!is.na(exposure_type)) %>%
+  as.data.frame()
+
+
+## unify exposure names
+f <- 'https://docs.google.com/spreadsheets/d/11oUNNjsmzC4wvYwcE8Zm_qavww0D6Twxl8UoPve1WOE/edit?usp=sharing'
+
+# # Re-authenticate with the correct scope
+# gs4_auth(scopes = "https://www.googleapis.com/auth/spreadsheets")
+# Authenticate with appropriate scope
+
+exposure_tier <- googlesheets4::read_sheet(f, sheet = 'nature_exposure_channels', range = 'A:D') %>%
+  dplyr::select(-exposure_type_t3) %>%
+  as.data.frame()
+
+
+df_exp_l <- df_exp %>% 
+  ## expand `exposure_type` if there are > 1 exposure types in a study
+  expand_col_to_long(data = ., target_col = 'exposure_type') %>%
+  ## clean the messy text data due to manual entry 
+  func_clean_exposure(data = ., column_name = 'exposure_type') %>%
+  dplyr::mutate(
+    # exposure_type1 = ifelse(str_detect(exposure_type, regex('duration', ignore_case = T)), 'Time spent in nature', exposure_type),
+    exposure_type = ifelse(grepl(x = exposure_type, 'duration|Spending hour|Time spent', ignore.case = T), 
+                           'Duration in nature', exposure_type),
+    ) %>%
+  as.data.frame() %>%
+  left_join(., y = exposure_tier, by = 'exposure_type') %>%
+  # merge(x=., y = exposure_tier, by = 'exposure_type', all.x = T) %>%
+  dplyr::rename('exposure_type_t1' = 'exposure_type') %>%
+  
+  ## to decide which tier name for the next step analysis
+  dplyr::rename('exposure_type'    = 'exposure_type_t2') %>%
+  dplyr::select(1:exposure_type_t1, exposure_type, everything())  %>%
+  as.data.frame()
+
+
 
 df_exp_l_stat <- df_exp_l %>% 
   group_by(exposure_type_t1, exposure_type) %>%
@@ -413,12 +423,18 @@ func_alluvial(data = df_exp_tool_flow, indicator_n_min = 5, width_my = width_my,
 
 
 ```{r selected tools ---------------}
-### only include the top n MH tools ------------------------------------------------------
+
+## 1.if select the top n MH tools in both cs and experimental studies
 tool_selected <- c('GHQ-12', 'PANAS', 'POMS', 
                    'STAI', 'SVS',
                    'SF-12', 'SF-36', 'WEMWBS', 'WHO-5',
                    'PSS', 'ROS')
+
+## 2. if only select tools used in experimental studies 
+source('./code/_parameters.R')
+tool_selected <- tool_selected_rct
 n_tool <- length(unique(tool_selected)); n_tool
+
 
 # df_exp_tool_flow3 <- df_exp_tool_flow %>%
 #   dplyr::mutate(remove = ifelse(dimension == 'Tool' & !layers %in% tool_selected, 0, 1)) %>%
@@ -439,15 +455,17 @@ df_exp_tool_flow3 <- df_exp_l_toolL %>%
   dplyr::mutate(
     dimension = factor(dimension, 
                        levels = c('exposure_type', 'Tool'), 
-                       labels = c('Exposure types', 'Metrics') ),
+                       labels = c('Nature Exposure Types', 'MH Tools') ),
     ) %>%
   group_by(layers) %>%
   dplyr::mutate(total = sum(freq, na.rm = T)) %>%
   as.data.frame()
 
-func_alluvial(data = df_exp_tool_flow3, indicator_n_min = 5, width_my = width_my, w_p = 7,
+func_alluvial(data = df_exp_tool_flow3, 
+              indicator_n_min = 3, # 5
               labele_small = 5,
-              show_y_ticks = F, 
+              show_y_ticks = T, 
+              width_my = width_my, w_p = 7,
               filename.prefix = '', filename.postfix = paste0('tool', n_tool, '_exposure'))
 ```
 
@@ -541,7 +559,7 @@ df_type_exp_tool <- df_exp_l_toolL %>%
   dplyr::mutate(
     dimension = factor(dimension, 
                        levels = c('nature_type', 'exposure_type', 'Tool'), 
-                       labels = c('Nature type', 'Exposure type', 'Metric') ),
+                       labels = c('Nature Types', 'Nature Exposure Types', 'MH Tools') ),
     ) %>%
   group_by(layers) %>%
   dplyr::mutate(total = sum(freq, na.rm = T)) %>%
@@ -555,6 +573,7 @@ df_type_exp_tool %>% func_alluvial(
 ```
 
 
+### participants description 
 
 ```{r age group}
 min(df$average_age_mean, na.rm = T) # 10.8
@@ -621,6 +640,7 @@ func_ggsave(fname = fname, w = 7, h = 7, save_png = T)
 
 
 ```{r nature_quantity}
+
 source('./code/func_alluvial.R')
 
 df_q <- df_exp %>%
@@ -666,226 +686,21 @@ func_alluvial(data = df_q_ndvi_, indicator_n_min = indicator_n_min, width_my = w
 ```
 
 
+
+
 ## Prepare data for MA
 
-### * Coefficient-based outcomes ---
+ **Coefficient-based outcomes** have been moved to another repo ...
+  
+  
+### * MD-focused outcomes
 
-```{r - function}
-
-# tool_selected
-
+```{r}
 
 ###' subset papers that examined `exposure_type_i`
-###' 
-
-func_exp_subset <- function(df, exposure_type_i, mh_tool) {
-  
-  ##' Filter 1. get paper id based on selected exposure type; studies will be filtered out 
-  ##'     if the `exposure_type` column is NA
-  exp_sub <- df_exp_l %>%
-    dplyr::filter(exposure_type %in% exposure_type_i)
-  exp_sub_id <- unique(exp_sub$id) %>% sort()
-
-  ##' Filter 2. further subset based on selected tools
-  exp_sub_df <- df %>%
-    dplyr::filter(id %in% exp_sub_id) %>%
-    dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
-    
-    ## subset cols -----------------------------------------------------------------------
-    dplyr::select(id:`Effect size indices`, effect_size_indices, 
-                  everything()) %>%
-    dplyr::select(id:Country, 
-                  all_of(cols_keep), 
-                  n_participants, buffers, buffers_unit,
-                  effect_size_indices:ncol(.)) %>%
-    dplyr::select(-c('Title', 'Reviewer_id', 'meet_criteria')) %>% ## keep "Reviewer" to match data from gsheet
-    dplyr::select(-contains(c('Please specify the tables', 'Additional comments'))) %>%
-    as.data.frame()
-  
-  return(exp_sub_df)
-  
-}
+source('./code/func_exposure_subset.R')
 
 
-# df_exp_tool_flow3 <- df_exp_l_toolL %>%
-#   dplyr::filter(Tool %in% tool_selected) %>% 
-```
-
-
-#### - GHQ-12
-```{r}
-mh_tool           <- "GHQ-12"
-
-##' filter exposure types based on this broader category
-##' It is likely this does not cover all the list in papers
-unique(df_exp_l$exposure_type)
-# unique(df_exp_l$exposure_type_t1)
-# exposure_type_i   <- 'L1 - neighborhood/residential exposure'
-exposure_type_i   <- c('Residential')
-
-effect_size_ind_i <- c('coef')
-  
-
-## test 
-# df_test <- df %>%
-#   dplyr::mutate(effect_size_indices = `Effect size indices`) %>%
-#   func_clean_effectsize(data = .) %>%
-#   dplyr::select(effect_size_indices, `Effect size indices`) %>%
-#   dplyr::mutate(len = str_length(effect_size_indices)) %>%
-#   arrange(desc(len)) %>%
-#   as.data.frame()
-
-exp_sub_df <- func_exp_subset(df = df, exposure_type_i = exposure_type_i, mh_tool = mh_tool)
-sub_ghq <- exp_sub_df
-
-## save for later use
-f <- paste0('./data/0301-MA-input/', 'sub_', paste(mh_tool, sep = '', collapse = '_'), '.RData'); f
-save(mh_tool, exposure_type_i, effect_size_ind_i, exp_sub_df, file = f)
-
-f <- gsub('RData', 'rds', f); f
-saveRDS(exp_sub_df, file = f)
-
-
-## for RA/Carl
-f <- gsub('rds', 'csv', f); f
-readr::write_csv(x = exp_sub_df, file = f)
-```
-
-
-
-#### - SF-12, SF-36
-```{r}
-mh_tool <- c("SF-12", "SF-36")
-
-
-## test 
-df_test <- df %>%
-  # dplyr::filter(id %in% exp_sub_id) %>%
-  dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
-  as.data.frame()
-
-exp_sub_df <- func_exp_subset(df = df, exposure_type_i = exposure_type_i, mh_tool = mh_tool)
-sub_sf <- exp_sub_df
-
-
-
-## save for later use
-## save for later use
-f <- paste0('./data/0301-MA-input/', 'sub_', paste(mh_tool, sep = '', collapse = '_'), '.RData'); f
-save(mh_tool, exposure_type_i, effect_size_ind_i, exp_sub_df, file = f)
-
-f <- gsub('RData', 'rds', f); f
-saveRDS(exp_sub_df, file = f)
-```
-
-
-#### - WEMWBS
-```{r}
-mh_tool <- c('WEMWBS')
-
-
-## test 
-df_test <- df %>%
-  # dplyr::filter(id %in% exp_sub_id) %>%
-  dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
-  as.data.frame()
-
-exp_sub_df <- func_exp_subset(df = df, exposure_type_i = exposure_type_i, mh_tool = mh_tool)
-sub_WEMWBS <- exp_sub_df
-
-## save for later use
-f <- paste0('./data/0301-MA-input/', 'sub_', paste(mh_tool, sep = '', collapse = '_'), '.RData'); f
-save(mh_tool, exposure_type_i, effect_size_ind_i, exp_sub_df, file = f)
-
-f <- gsub('RData', 'rds', f); f
-saveRDS(exp_sub_df, file = f)
-```
-
-#### - WHO-5
-```{r}
-mh_tool <- c('WHO-5')
-
-
-## test 
-df_test <- df %>%
-  # dplyr::filter(id %in% exp_sub_id) %>%
-  dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
-  as.data.frame()
-
-exp_sub_df <- func_exp_subset(df = df, exposure_type_i = exposure_type_i, mh_tool = mh_tool)
-sub_who5 <- exp_sub_df
-
-## save for later use
-f <- paste0('./data/0301-MA-input/', 'sub_', paste(mh_tool, sep = '', collapse = '_'), '.RData'); f
-save(mh_tool, exposure_type_i, effect_size_ind_i, exp_sub_df, file = f)
-
-f <- gsub('RData', 'rds', f); f
-saveRDS(exp_sub_df, file = f)
-```
-
-
-
-#### - PSS - obs
-```{r}
-mh_tool <- c('PSS')
-
-
-## test 
-df_test <- df %>%
-  # dplyr::filter(id %in% exp_sub_id) %>%
-  dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
-  as.data.frame()
-
-exp_sub_df %>%
-  group_by(effect_size_indices) %>% count(effect_size_indices)
-
-exp_sub_df <- func_exp_subset(df = df, exposure_type_i = exposure_type_i, mh_tool = mh_tool)
-sub_pss <- exp_sub_df
-
-## save for later use
-f <- paste0('./data/0301-MA-input/', 'sub_', paste(mh_tool, sep = '', collapse = '_'), '_obs.RData'); f
-save(mh_tool, exposure_type_i, effect_size_ind_i, exp_sub_df, file = f)
-
-f <- gsub('RData', 'rds', f); f
-saveRDS(exp_sub_df, file = f)
-```
-#### - PHQ
-```{r}
-mh_tool <- c('PHQ')
-
-
-## test 
-df_test <- df %>%
-  # dplyr::filter(id %in% exp_sub_id) %>%
-  dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
-  as.data.frame()
-
-
-
-exp_sub_df <- func_exp_subset(df = df, exposure_type_i = exposure_type_i, mh_tool = mh_tool)
-exp_sub_df %>%
-  group_by(effect_size_indices) %>% count(effect_size_indices)
-
-
-sub_phq <- exp_sub_df
-
-## save for later use
-f <- paste0('./data/0301-MA-input/', 'sub_', paste(mh_tool, sep = '', collapse = '_'), '_obs.RData'); f
-# save(mh_tool, exposure_type_i, effect_size_ind_i, exp_sub_df, file = f)
-# 
-# f <- gsub('RData', 'rds', f); f
-# saveRDS(exp_sub_df, file = f)
-```
-
-
-
-#### - GAD
-
-
-
-### * MD-focused outcomes ---
-
-```{r}
 effect_size_ind_i <- c(
   "D",
   "d_cohens",
@@ -925,9 +740,6 @@ mh_tool <- "POMS"
 
 ##' exclude selected study for now, while waiting for the authors to clarify the data (e.g., sd, se)
 id_exclude <- c('6523') 
-
-# exposure_type_i   <- c('stay static in nature', 'physical activity in nature') 
-exposure_type_i   <- c('In nature - Static', 'In nature - PA')
 
 ###' subset papers that examined `exposure_type_i`
 exp_sub_df <- func_exp_subset(df = df, exposure_type_i = exposure_type_i, mh_tool = mh_tool) %>%
