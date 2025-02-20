@@ -3,7 +3,7 @@ library(ggplot2)
 
 
 ##' The use of letters to indicate significant differences in pairwise comparisons is called 
-##'   compact letter display, and can simplify the visualization and discussion of 
+##'   `compact letter display` (CLD), and can simplify the visualization and discussion of 
 ##'   significant differences among means. We are going to use the `multcompLetters4` function 
 ##'   from the `multcompView` package. 
 ##'   The arguments are the object from an aov function and the object from the `TukeyHSD` function.
@@ -65,12 +65,19 @@ func_test_dif <- function(df,
     
     labs(
       # title = "Boxplot with Compact Letter Display (Non-Parametric)", 
-      caption = '*Means not sharing any letter are significantly different by the Tukey-test at the 5% level of significance.',
+      # caption = '*Means not sharing any letter are significantly different',
       x = "", y = "Means") +
     # theme_minimal() +
     # coord_flip() +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+  
+  ##' For figure legend: 
+  ##' Kruskal-Wallis test was used to detect if there is a significant difference among groups. 
+  ##' Post-hoc Dunn’s test with Bonferroni correction was used for pairwise comparisons. 
+  ##' Groups that share the same letter (above each boxplot) are not significantly different, while different letters indicate significant differences. 
+  ##' The horizontal line inside each box represents the median, and the boxes span the interquartile range (IQR, 25th to 75th percentile). 
+  ##' Whiskers extend to 1.5× IQR, and points outside this range are outliers. 
   
   
   if (!is.null(facet_by)) {
