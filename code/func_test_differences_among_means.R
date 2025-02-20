@@ -49,18 +49,20 @@ func_test_dif <- function(df,
   }
   
   
+  # Calculate upper quantile (75th percentile) for each category
+  data_comb_quantiles <- data_comb %>%
+    group_by(ind_sub, Group, groups) %>%
+    summarize(Q3 = quantile(Value, 0.75, na.rm = T))  # Extract 75th percentile
+  
+  
   # Create the plot with ggplot2
   p <- ggplot(data_comb, aes(x = Group, y = Value, fill = Group)) +
     geom_boxplot(show.legend = F) +
-    geom_text(aes(label = groups, 
-                  # Remove outliers and calculate the 75th percentile in one step
-                  y = quantile(
-                    Value[Value >= quantile(Value, 0.25, na.rm = T) - 1.5 * IQR(Value, na.rm = T) & 
-                            Value <= quantile(Value, 0.75, na.rm = T) + 1.5 * IQR(Value, na.rm = T)], 
-                    probs = 75/100, na.rm = T)), 
-              vjust=0, hjust = -0.5, 
-              color = 'gray20'
-              ) +
+
+    geom_text(data = data_comb_quantiles, aes(x = Group, y = Q3, fill = Group, label = groups), 
+              vjust=-0.3, hjust = -0.5,  # Adjust hjust to move text slightly right
+              color = "gray20") +  
+    
     labs(
       # title = "Boxplot with Compact Letter Display (Non-Parametric)", 
       caption = '*Means not sharing any letter are significantly different by the Tukey-test at the 5% level of significance.',

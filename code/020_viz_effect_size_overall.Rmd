@@ -238,7 +238,8 @@ if ( max(ma_ind_tool_n$n, rm.na = T) > 1) {
 
 
 #### - plot
-```{r}
+
+```{r - para}
 source('./code/func_plot_ma.R')
 source('./code/func_color_bygroup.R')
 
@@ -283,10 +284,11 @@ ind_sub_levels <- c(
   "Restorative Effect", # ROS
   "Vigor",              # --- POMS
   "Vitality"            # SVS
-)   
+)
+```
 
 
-
+```{r - loop plot}
 # Find elements missing in subset_vector
 missing_indicators <- setdiff(unique(ma_result_all$ind_sub), ind_sub_levels)
 
@@ -413,37 +415,40 @@ ma_result_each_i <- ma_result_each  %>%
   dplyr::filter(!stringr::str_detect(pattern = ";|from window|residential|participatory", string = subgroup)) %>%
   dplyr::mutate(subgroup = gsub('L4 - | in nature|L5 - nature ', '', subgroup))
 
-# ma_result_each_i1 <- ma_result_each_i %>%
-#   dplyr::filter(subgroup == 'L4 - stay static in nature')
-# 
-# ma_result_each_i2 <- ma_result_each_i %>%
-#   dplyr::filter(subgroup == 'L4 - physical activity in nature')
+
 
 
 ##' Testing whether your data is normally distributed is an important step before applying many statistical tests that assume normality (e.g., t-tests, ANOVA). 
 ##' If the p-value is greater than 0.05, the data does not significantly deviate from normality.
 ##' If the p-value is less than 0.05, the data significantly deviates from normality.
+
+ma_result_each_i1 <- ma_result_each_i %>%
+  dplyr::filter(subgroup == 'stay static')
+
+ma_result_each_i2 <- ma_result_each_i %>%
+  dplyr::filter(subgroup == 'physical activity')
+
 # hist(ma_result_each_i1$SMD)
 
-# Perform Shapiro-Wilk test
-shapiro_test <- shapiro.test(ma_result_each_i1$SMD)
-# print(shapiro_test)
-
-shapiro_test <- shapiro.test(ma_result_each_i2$SMD)
-# print(shapiro_test)
-
-
-if (shapiro_test$p.value <= 0.05) {
-  print('The data is NOT normally distributed.')
-} else {
-  print('The data is normally distributed.')
-}
-
-
+# # Perform Shapiro-Wilk test
+# shapiro_test <- shapiro.test(ma_result_each_i1$SMD)
+# # print(shapiro_test)
+# 
+# shapiro_test <- shapiro.test(ma_result_each_i2$SMD)
+# # print(shapiro_test)
+# 
+# 
+# if (shapiro_test$p.value <= 0.05) {
+#   print('The data is NOT normally distributed.')
+# } else {
+#   print('The data is normally distributed.')
+# }
+# 
+# 
 control <- ma_result_each_i1$SMD
 experiment <- ma_result_each_i2$SMD
 
-##' 1. T-Test (for normally distributed continuous data)
+##' 1. T-Test (for normally distributed continuous data) ---------------------------------
 ##' If your data is continuous and normally distributed, and you want to compare the means of two independent groups, you can use a two-sample t-test (also known as an independent t-test).
 ##' var.equal = TRUE: Assumes equal variances between the two groups. Use var.equal = FALSE if variances are not assumed equal.
 ##' Perform two-sample t-test
@@ -451,7 +456,7 @@ experiment <- ma_result_each_i2$SMD
 # print(t_test_result)
 
 
-##' 2. Wilcoxon Rank-Sum Test (for non-normally distributed continuous data)
+##' 2. Wilcoxon Rank-Sum Test (for non-normally distributed continuous data) -------------
 ##'   If your data is not normally distributed, you can use the Wilcoxon rank-sum test (also known as the Mann-Whitney U test) to compare the distributions of two independent groups.
 ##' Perform Wilcoxon rank-sum test
 wilcox_test_result <- wilcox.test(control, experiment)
