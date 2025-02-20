@@ -403,15 +403,17 @@ for (f in fs) {
 
 
 
-```{r - test}
+```{r - run}
 
+subgroups
 subgroup_select <- 'exposure_o2'
+subgroup_select <- "duration_group"
 
 ma_result_each_i <- ma_result_each  %>%
   dplyr::mutate(ind_sub = factor(ind_sub, levels = ind_sub_levels)) %>%
   # dplyr::filter(tool == 'PANAS') %>%
   # dplyr::filter(ind_sub == 'Negative Affect') %>%
-  dplyr::filter(group_name == 'exposure_o2') %>%
+  dplyr::filter(group_name == subgroup_select) %>%
   dplyr::filter(!stringr::str_detect(pattern = ";|from window|residential|participatory", string = subgroup)) %>%
   dplyr::mutate(subgroup = gsub('L4 - | in nature|L5 - nature ', '', subgroup))
 
@@ -422,11 +424,14 @@ ma_result_each_i <- ma_result_each  %>%
 ##' If the p-value is greater than 0.05, the data does not significantly deviate from normality.
 ##' If the p-value is less than 0.05, the data significantly deviates from normality.
 
-ma_result_each_i1 <- ma_result_each_i %>%
-  dplyr::filter(subgroup == 'stay static')
-
-ma_result_each_i2 <- ma_result_each_i %>%
-  dplyr::filter(subgroup == 'physical activity')
+# ma_result_each_i1 <- ma_result_each_i %>%
+#   dplyr::filter(subgroup == 'stay static')
+# 
+# ma_result_each_i2 <- ma_result_each_i %>%
+#   dplyr::filter(subgroup == 'physical activity')
+# 
+# control <- ma_result_each_i1$SMD
+# experiment <- ma_result_each_i2$SMD
 
 # hist(ma_result_each_i1$SMD)
 
@@ -445,8 +450,7 @@ ma_result_each_i2 <- ma_result_each_i %>%
 # }
 # 
 # 
-control <- ma_result_each_i1$SMD
-experiment <- ma_result_each_i2$SMD
+
 
 ##' 1. T-Test (for normally distributed continuous data) ---------------------------------
 ##' If your data is continuous and normally distributed, and you want to compare the means of two independent groups, you can use a two-sample t-test (also known as an independent t-test).
@@ -462,12 +466,28 @@ experiment <- ma_result_each_i2$SMD
 wilcox_test_result <- wilcox.test(control, experiment)
 print(wilcox_test_result)
 
-source('code/func_test_differences_among_means.R')
+source('code/func_comparing_means_cld.R')
 func_test_dif(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
-
 
 fname <- paste0(dir.fig, 'es_comb_subgroup_', subgroup_select, '_TestDiff_', today, vv, '.png'); print(fname)
 func_ggsave(fname, w = 7, h = 6, save_png = T)
+
+
+
+# source('code/func_test_difference_Dunns.R')
+# func_test_dif_dunn1(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
+
+
+
+source('code/func_comparing_means_Dunns.R')
+func_test_dif_dunn(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
+
+fname <- paste0(dir.fig, 'es_comb_subgroup_', subgroup_select, '_TestDiff_', today, vv, '_sig.png'); print(fname)
+func_ggsave(fname, w = 7, h = 6, save_png = T)
+
+
+
+
 ```
 
 
