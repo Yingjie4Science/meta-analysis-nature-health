@@ -58,7 +58,7 @@ func_test_dif <- function(df,
   # Create the plot with ggplot2
   p <- ggplot(data_comb, aes(x = Group, y = Value, fill = Group)) +
     geom_boxplot(show.legend = F) +
-
+    
     geom_text(data = data_comb_quantiles, aes(x = Group, y = Q3, fill = Group, label = groups), 
               vjust=-0.3, hjust = -0.5,  # Adjust hjust to move text slightly right
               color = "gray20") +  
@@ -89,4 +89,3 @@ func_test_dif <- function(df,
   
   return(p)
 }
-
