@@ -20,7 +20,7 @@ library(data.table)
 ```
 
 
-## load data
+## Load data 1
 
 ```{r}
 mh_tool_exp <- c('PANAS', 'POMS', 'ROS', 'STAI', 'SVS', 'PSS') # , 'DASS-21'
@@ -37,12 +37,58 @@ ls <- list.files(path = './data/0301-MA-input/',
 list_df <- lapply(ls, fread)
 
 # Bind all data frames together
-n_dfs1 <- rbindlist(list_df) %>%
-  dplyr::select(1:Tools, study_design, n_participants, N, n)
-
-n_dfs1_unique <- n_dfs1 %>% dplyr::distinct(id, .keep_all = T)
+dfs1 <- rbindlist(list_df) %>%
+  filter(!is.na(c_mean))
 
 
+dfs1 %>%
+  distinct(id, .keep_all = T) %>%
+  nrow(.)
+
+dfs1_check <- dfs1 %>%
+  # distinct(id, .keep_all = T) %>%
+  ## data check ---------------------------- #
+  filter(id %in% c('1910', '2648', '3057')) %>%
+  select(1:20, nature_type_o1, nature_type_o2, c_mean) %>%
+  ## --------------------------------------- #
+  # nrow(.)
+  as.data.frame()
+```
+
+
+```{r data desc}
+names(dfs1)
+unique(dfs1$nature_type)
+# unique(dfs1$nature_type_o1) %>% sort()
+# unique(dfs1$nature_type_o2) %>% sort()
+# unique(dfs1$exposure_o2) %>% sort()
+# unique(dfs2$nature_type)
+
+
+
+## stats on nature type
+dfs1 %>% 
+  dplyr::distinct(id, nature_type_o2) %>%
+  group_by(nature_type_o2) %>%
+  tally() %>%
+  arrange(desc(n)) %>%
+  mutate(percentage = round(n / sum(n) * 100, digits = 1))
+
+
+### stats on nature exposure type
+dfs1 %>% 
+  dplyr::distinct(id, exposure_o2) %>%
+  group_by(exposure_o2) %>%
+  tally() %>%
+  arrange(desc(n)) %>%
+  mutate(percentage = round(n / sum(n) * 100, digits = 1))
+```
+
+
+
+## Load data 2
+
+```{r}
 ## 2. based on Rdata ----
 ls <- list.files(path = './data/0301-MA-input/', 
            pattern = paste('^sub_', mh_tool_list, '.rds', sep = '', collapse = '|'),
@@ -52,7 +98,37 @@ ls
 list_df <- lapply(ls, readRDS)
 
 # Bind all data frames together
-n_dfs2 <- rbindlist(list_df) %>%
+dfs2 <- rbindlist(list_df)
+
+dfs2 %>%
+  distinct(id, .keep_all = T) %>%
+  nrow(.)
+
+# ## stats on nature type
+# dfs2 %>% 
+#   dplyr::distinct(id, nature_type_o2) %>%
+#   group_by(nature_type_o2) %>%
+#   tally() %>%
+#   arrange(desc(n))
+```
+
+
+
+
+### number of participants 
+
+```{r}
+
+## 1. 
+n_dfs1 <- dfs1 %>%
+  dplyr::select(1:Tools, study_design, n_participants, N, n)
+
+n_dfs1_unique <- n_dfs1 %>% dplyr::distinct(id, .keep_all = T)
+
+
+## 2. based on Rdata ----
+
+n_dfs2 <- dfs2 %>%
   dplyr::select(1:Tools, study_design, n_participants) %>%
   dplyr::mutate(n_participants = str_squish(n_participants) %>% trimws(.) %>% as.numeric(.))
 
