@@ -48,6 +48,7 @@ source('./code/func_expand_col_to_long.R')
 source('./code/func_clean_geo.R')
 source('./code/func_clean_indicators.R')
 source('./code/func_clean_indicatorsPro.R')
+source('./code/func_clean_nature.R')
 source('./code/func_clean_tools.R')
 source('./code/func_plot_freq.R')
 source('./code/func_alluvial.R')
@@ -81,7 +82,7 @@ csv <- "review_278532_20240809075246.csv"     # 2024-08-08, added STAI
 csv <- 'review_278532_20240813041935.csv'     # 2024-08-09, added SVS
 csv <- "review_278532_20240819074110.csv"     # 2024-08-13, added DASS-21
 csv <- 'review_278532_20250218104233.csv'     # 2025-02-17, R1
-csv <- 'review_278532_20250218154809.csv'     # 2025-02-17, R1, fix reviewer names in Covidence
+csv <- 'review_278532_20250219060652.csv'     # 2025-02-17, R1, fix reviewer names in Covidence
 
 
 t <- basename(csv) %>% gsub('review_278532_', '', .) %>%
@@ -246,6 +247,53 @@ names(de_sm)
 f <- './data/included_papers_for_systematic_review.csv'
 readr::write_csv(x = de_sm, file = f)
 ```
+
+
+
+```{r - nature type stats}
+
+f <- './data/included_papers_for_systematic_review.csv'
+de_sm <- read_csv(f, show_col_types = F)
+
+## stats on nature type
+# de_sm %>% 
+#   dplyr::distinct(`Study ID`, nature_type) %>%
+#   group_by(nature_type) %>%
+#   tally() %>%
+#   arrange(desc(n)) %>%
+#   mutate(percentage = round(n / sum(n) * 100, digits = 1))
+
+
+de_sm_list <- de_sm %>% 
+  dplyr::distinct(`Study ID`, nature_type) %>%
+  func_clean_nature_type(column_name = 'nature_type', aggregate = F) %>%
+  as.data.frame()
+
+# Step 1: Split strings that contain ";"
+de_sm_data <- data.frame(Value = unlist(strsplit(de_sm_list$nature_type, ";"))) %>%
+  filter(!is.na(Value)) %>%
+  dplyr::mutate(Value = trimws(Value)) %>%
+  func_clean_nature_type(column_name = 'Value', aggregate = F) %>%
+  dplyr::mutate(Value = case_when(
+    Value %in% c('city parks') ~ 'Greenspace - Park',
+    Value %in% c('urban green areas', 'Residential greenness') ~ 'Greenspace',
+    Value %in% c('residential Bluespace') ~ 'Bluespace',
+    T ~ Value
+  )) %>%
+  filter(!Value %in% c('Urban squares')) %>%
+  as.data.frame()
+
+
+# Step 2: Count occurrences
+de_sm_nature_count <- de_sm_data %>%
+  count(Value) %>%
+  arrange(desc(n)) %>%
+  mutate(Percentage = round(n / sum(n) * 100, 1))  # Step 3: Calculate percentage
+
+sum(de_sm_nature_count$n)
+
+```
+
 
 
 ```{r - save as rds 📁, include=FALSE}
