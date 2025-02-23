@@ -38,8 +38,8 @@ func_test_dif <- function(df,
     kruskal_result <- kruskal(data$Value, data$Group, group = TRUE)
     cld <- kruskal_result$groups
     
-    # Merge CLD with original data
-    data$Group <- factor(data$Group, levels = rownames(cld))
+    ## Merge CLD with original data
+    # data$Group <- factor(data$Group, levels = rownames(cld))
     cld$Group <- rownames(cld)
     
     # Combine the original data with CLD information
@@ -60,7 +60,7 @@ func_test_dif <- function(df,
     geom_boxplot(show.legend = F) +
     
     geom_text(data = data_comb_quantiles, aes(x = Group, y = Q3, fill = Group, label = groups), 
-              vjust=-0.3, hjust = -0.5,  # Adjust hjust to move text slightly right
+              vjust=-0.3, hjust = -0.4,  # Adjust hjust to move text slightly right
               color = "gray20") +  
     
     labs(
@@ -84,7 +84,7 @@ func_test_dif <- function(df,
     p <- p +
       facet_wrap(~ get(facet_by), 
                  scales = 'free_y',
-                 ncol = 5)
+                 ncol = 4)
   }
   
   return(p)

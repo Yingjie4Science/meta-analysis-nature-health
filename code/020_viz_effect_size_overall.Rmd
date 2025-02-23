@@ -26,7 +26,7 @@ source('./code/func_plot_ma.R')
 
 
 ##' an extra post fix for figure's version control
-vv <- ""
+vv <- "v1"
 # vv <- "vPr" ## simplified figure version for presentation
 ```
 
@@ -263,7 +263,7 @@ subgroups <- c(
   'subgroup_design', 'exposure_o2',
   'nature_type_o2', 
   'Region',
-  'age_group', 'gender_group', 'duration_group')
+  'age_group', 'gender_group', 'duration_group') %>%  sort()
 
 
 ## indicators to be included in the combined sub-group analysis plots
@@ -376,7 +376,8 @@ for (subgroup_select in subgroups) {
 
 
 
-####  - test different between two groups
+####  - comparing means - difference among groups
+
 Summary
   Use a t-test for comparing means of normally distributed data.
   Use a Wilcoxon test for non-parametric data.
@@ -417,8 +418,11 @@ ma_result_each_i <- ma_result_each  %>%
   dplyr::filter(!stringr::str_detect(pattern = ";|from window|residential|participatory", string = subgroup)) %>%
   dplyr::mutate(subgroup = gsub('L4 - | in nature|L5 - nature ', '', subgroup))
 
+str(ma_result_each_i)
+subgroup_unique <- unique(ma_result_each_i$subgroup) %>% sort()
 
-
+ma_result_each_i <- ma_result_each_i %>%
+  mutate(subgroup = factor(x = subgroup, levels = subgroup_unique))
 
 ##' Testing whether your data is normally distributed is an important step before applying many statistical tests that assume normality (e.g., t-tests, ANOVA). 
 ##' If the p-value is greater than 0.05, the data does not significantly deviate from normality.
@@ -463,32 +467,105 @@ ma_result_each_i <- ma_result_each  %>%
 ##' 2. Wilcoxon Rank-Sum Test (for non-normally distributed continuous data) -------------
 ##'   If your data is not normally distributed, you can use the Wilcoxon rank-sum test (also known as the Mann-Whitney U test) to compare the distributions of two independent groups.
 ##' Perform Wilcoxon rank-sum test
-wilcox_test_result <- wilcox.test(control, experiment)
-print(wilcox_test_result)
-
-source('code/func_comparing_means_cld.R')
-func_test_dif(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
-
-fname <- paste0(dir.fig, 'es_comb_subgroup_', subgroup_select, '_TestDiff_', today, vv, '.png'); print(fname)
-func_ggsave(fname, w = 7, h = 6, save_png = T)
+# wilcox_test_result <- wilcox.test(control, experiment)
+# print(wilcox_test_result)
 
 
 
-# source('code/func_test_difference_Dunns.R')
-# func_test_dif_dunn1(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
+# source('code/func_comparing_means_cld.R')
+# func_test_dif(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
+# fname <- paste0(dir.fig, 'es_comb_subgroup_', subgroup_select, '_TestDiff_', today, vv, '_cld.png'); print(fname)
+# func_ggsave(fname, w = 7, h = 6, save_png = T)
+
+
+
+# source('code/func_comparing_means_Dunns.R')
+# func_test_dif_dunn(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
+# fname <- paste0(dir.fig, 'es_comb_subgroup_', subgroup_select, '_TestDiff_', today, vv, '_sig.png'); print(fname)
+# func_ggsave(fname, w = 7, h = 6, save_png = T)
 
 
 
 source('code/func_comparing_means_Dunns.R')
-func_test_dif_dunn(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
-
-fname <- paste0(dir.fig, 'es_comb_subgroup_', subgroup_select, '_TestDiff_', today, vv, '_sig.png'); print(fname)
+func_test_dif_dunn2(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
+fname <- paste0(dir.fig, 'es_comb_subgroup_', subgroup_select, '_TestDiff_', today, vv, '_sig2.png'); print(fname)
 func_ggsave(fname, w = 7, h = 6, save_png = T)
 
 
 
 
 ```
+
+
+
+```{r - loop run}
+
+for (subgroup_select in subgroups) {
+  
+  ma_result_each_i <- ma_result_each  %>%
+    dplyr::mutate(ind_sub = factor(ind_sub, levels = ind_sub_levels)) %>%
+    # dplyr::filter(tool == 'PANAS') %>%
+    # dplyr::filter(ind_sub == 'Negative Affect') %>%
+    dplyr::filter(group_name == subgroup_select) %>%
+    dplyr::filter(!stringr::str_detect(pattern = ";|from window|residential|participatory", string = subgroup)) %>%
+    dplyr::mutate(subgroup = gsub('L4 - | in nature|L5 - nature ', '', subgroup))
+  
+  ##' Use factor to keep consistent order of the groups
+  ##' 1. decide factor levels, and color scheme 
+  if(subgroup_select == 'nature_type_o2'){
+    group_title = str_to_sentence(gsub('_|_o2', ' ', subgroup_select)) %>% trimws()
+    color_bygroup = nature_type_color; 
+    group_list = nature_type_list
+  } else if(subgroup_select == 'age_group'){
+    group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
+    color_bygroup = age_group_color;
+    group_list = age_group_list
+  } else if(subgroup_select == 'gender_group'){
+    group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
+    color_bygroup = gender_group_color;
+    group_list = gender_group_list
+  } else if(subgroup_select == 'duration_group'){
+    group_title = 'Duration in nature'
+    color_bygroup = duration_group_color; 
+    group_list = duration_group_list
+  } else if(subgroup_select == 'Region'){
+    group_title = subgroup_select
+    color_bygroup = region_color;
+    group_list = region_list
+  } else {
+    # next
+    group_title = str_to_sentence(gsub('_|_o2', ' ', subgroup_select)) %>% trimws()
+    group_list = unique(ma_result_each_i$subgroup) %>% sort()
+    color_bygroup = func_color_bygroup(df = ma_result_each_i, column_name = 'subgroup')
+  }
+  
+  ##' 2. modify the factor levels
+  # group_list <- unique(ma_result_each_i$subgroup) %>% sort()
+  ma_result_each_i <- ma_result_each_i %>%
+    dplyr::mutate(subgroup = factor(x = subgroup, levels = group_list))
+  
+  
+  ## run 1 -- the initial function with CLD annotations
+  # source('code/func_comparing_means_cld.R')
+  # func_test_dif(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
+  # fname <- paste0(dir.fig, 'es_comb_subgroup_', subgroup_select, '_TestDiff_', today, '_cld', vv, '.png'); print(fname)
+  # func_ggsave(fname, w = 7, h = 6, save_png = T)
+  
+  
+  ## run 2 -- an updated function 
+  source('code/func_comparing_means_Dunns.R')
+  which_test = 'dunn'
+  func_test_dif_dunn2(df = ma_result_each_i, value = 'SMD', group = 'subgroup', 
+                      which_test, ## "dunn" or "wilcoxon",
+                      facet_by = 'ind_sub')
+  fname <- paste0(dir.fig, paste('es_comb_subgroup', subgroup_select, 'TestDiff', today, which_test, vv, sep = '_'), '.png'); print(fname)
+  func_ggsave(fname, w = 7, h = 6, save_png = T)
+}
+
+## test 
+# subgroup_select <- 'nature_type_o2'
+```
+
 
 
 
