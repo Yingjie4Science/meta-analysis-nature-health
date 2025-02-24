@@ -92,7 +92,7 @@ cat('... Working on', mh_tool, '... \n\t', sub_indicator_selected, '\n\n')
 
 ##' plot for double-checking
 show_raw_data_in_forest <- F
-add_subgroup_analysis   <- T
+add_subgroup_analysis   <- F
 
 
 subgroups <- c(
@@ -154,7 +154,19 @@ for (subgroup_select in subgroups) {
     ma_smd_overall <- ma_smd
     
     
-    ### 1. extract the overall effect size data to a dataframe
+    ## save model data, used for publication bias analysis -------------------------------
+    fname <- paste0('./data/0302-MA-output/', 
+                    paste('ma_smd', paste(mh_tool, collapse = "_"), sub_ind_i, '.rds', sep = '_')); 
+    print(fname)
+    saveRDS(ma_smd, file = fname)
+  
+  
+    ##' ## A funnel plot visually inspects publication bias: -------------------------------
+    ##' see `012a_publication_bias.R`
+  
+
+    
+    ###' 1. extract the *overall* effect size data to a dataframe
     ma_smd.df <- data.frame(
       tool = mh_tool, 
       ind_sub = sub_ind_i,
@@ -182,8 +194,9 @@ for (subgroup_select in subgroups) {
     
     
     
-    
-    ## update the MA by adding subgroup analysis -----------------------------------------
+    ## --------------------------------------------------------------------------------- #
+    ##' update the MA by adding *subgroup* analysis
+    ## --------------------------------------------------------------------------------- #
     if (add_subgroup_analysis == T) {
       ma_smd <- update(ma_smd, subgroup = subgroup_selected,
                        control = list(maxiter = 1000, stepadj = 0.5))
@@ -272,8 +285,9 @@ for (subgroup_select in subgroups) {
     
   }
   
-  
+  ## --------------------------------------------------------------------------------- #
   ## save MA result 
+  ## --------------------------------------------------------------------------------- #
   cat('\n')
   fname <- paste0('./data/0302-MA-output/', 
                   paste('ma_result.overall.pool', paste(mh_tool, collapse = "_"), '.rds', sep = '_')); 
@@ -319,6 +333,26 @@ for (sub_ind_i in sub_indicator_selected) {
   ### fit equal- and random-effects models
   # rma(yi, vi, data=dat1, method="EE", digits=3)
   
+  ## A funnel plot visually inspects publication bias:
+  funnel(res, main = "Funnel Plot for Publication Bias")
+  
+  egger_test <- regtest(res, model = "lm")
+  egger_test
+  # Interpretation of Egger’s Test:
+  #   p < 0.05 → Significant publication bias
+  #   p > 0.05 → No significant publication bias
+  
+  
+  ## If bias is detected, apply Trim-and-Fill to adjust for missing studies:
+  trimfill_result <- trimfill(res)
+  summary(trimfill_result)
+  
+  # Funnel plot after correction
+  funnel(trimfill_result, main = "Funnel Plot with Trim-and-Fill Adjustment")
+
+  ###' Compare the new results to the original ones and include a statement on sensitivity analyses:
+  ###' "To assess publication bias, we first conducted a funnel plot analysis, which showed slight asymmetry (Fig. X). Egger’s regression test confirmed this observation (p = 0.03), indicating a significant small-study effect. To adjust for missing studies, we applied Duval and Tweedie’s trim-and-fill method, which estimated X missing studies and adjusted the pooled effect size from Hedges' g = 0.65 (95% CI: 0.50–0.80) to 0.60 (95% CI: 0.45–0.75). Overall, while some publication bias was detected, sensitivity analyses suggest our conclusions remain robust."
+
   
   ### forest plot with extra annotations
   ###' https://wviechtb.github.io/metafor/reference/forest.default.html
