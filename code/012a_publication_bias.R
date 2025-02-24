@@ -2,15 +2,21 @@
 
 ### Funnel plot for publication bias
 
-# Given our assumptions, and in the case when there is no publication bias, all studies would lie symmetrically around our pooled effect size (the vertical line in the middle), within the form of the funnel. 
-# 
-# When *publication bias* is present, we would assume that the funnel would look asymmetrical, because only the small studies with a large effect size very published, while small studies without a significant, large effect would be missing.
-# 
-# We can see in the plot that while some studies have statistically significant effect sizes (the gray areas), others do not (white background). 
-# 
-# - https://cjvanlissa.github.io/Doing-Meta-Analysis-in-R/smallstudyeffects.html
-# 
-# - https://wviechtb.github.io/metafor/reference/funnel.html
+#' The input data were generated from `012_MA_MD.Rmd`
+
+#' Given our assumptions, and in the case when there is no publication bias, 
+#'  all studies would lie symmetrically around our pooled effect size (the vertical line in the middle), 
+#'  within the form of the funnel. 
+#' 
+#' When *publication bias* is present, we would assume that the funnel would look asymmetrical, 
+#'  because only the small studies with a large effect size very published, 
+#'  while small studies without a significant, large effect would be missing.
+#' 
+#' We can see in the plot that while some studies have statistically significant effect 
+#'  sizes (the gray areas), others do not (white background). 
+#' 
+#' - https://cjvanlissa.github.io/Doing-Meta-Analysis-in-R/smallstudyeffects.html
+#' - https://wviechtb.github.io/metafor/reference/funnel.html
 
 
 # # Install and load required packages (if not already installed)
@@ -43,15 +49,28 @@ col.contour = c("gray75", "gray85", "gray95")
 
 
 ## 1. load data
-mh_tool <- 'POMS'
+source('./code/_parameters.R') # `tool_selected_rct`
+
 fs <- list.files(path = './data/0302-MA-output/', 
-                 pattern = paste('^ma_smd', paste(mh_tool, collapse = "_"), '.*.rds', sep = '_'), 
+                 pattern = '^ma_smd_.*.rds', 
                  full.names = T); 
 fs
 
+
+
 for (f in fs) {
   
-  ind <- basename(f) %>% gsub('ma_smd_|_.rds|_', '', .) %>% gsub(mh_tool, '', .); ind
+  tool_ind <- basename(f) %>% gsub('ma_smd_|_.rds', '', .) #%>% gsub(mh_tool, '', .); ind
+  
+  # Split into two parts
+  split_string <- str_split_fixed(tool_ind, "_", 2)
+  mh_tool <- split_string[1]
+  ind <- split_string[2]
+  
+  # Check if input_string is in valid_values, otherwise stop with an error
+  if (!(mh_tool %in% tool_selected_rct)) {
+    stop(paste("Error: '", mh_tool, "' is not in the valid tool list! Please double-check!"))
+  }
   
   ma_smd <- readRDS(f)
   
@@ -59,11 +78,11 @@ for (f in fs) {
   # ========================
   # 1. Funnel Plot (Visual Assessment)
   # ========================
-  # Generate Original Funnel Plot
-  funnel_original <- funnel(ma_smd, 
-                            # contour = c(0.9, 0.95, 0.99),
-                            # col.contour = col.contour,
-                            main = "Original Funnel Plot", col = "blue")
+  # # Generate Original Funnel Plot
+  # funnel_original <- funnel(ma_smd, 
+  #                           # contour = c(0.9, 0.95, 0.99),
+  #                           # col.contour = col.contour,
+  #                           main = "Original Funnel Plot", col = "blue")
   
   
   # ========================
@@ -80,9 +99,10 @@ for (f in fs) {
   egger_test <- regtest(metafor_data$yi, metafor_data$sei, model = "lm")
   egger_test
   egger_pval <- round(egger_test$pval, 3)  # Extract p-value for annotation
-  egger_pval <- ifelse(egger_pval < 0.05, 
+  egger_plab <- ifelse(egger_pval < 0.05, 
                        'p < 0.05 (Sig. publication bias)', 
                        'p > 0.05 (No sig. publication bias)')
+  egger_pcol <- ifelse(egger_pval < 0.05, 'red', 'blue')
   
   # Interpretation:
   # - If p < 0.05 → Significant bias detected
@@ -97,11 +117,12 @@ for (f in fs) {
   
   # Funnel Plot with Adjusted Effect Sizes
   # Generate Adjusted Funnel Plot (Trim-and-Fill Method)
-  funnel_adjusted <- funnel(trimfill_result, main = "Trim-and-Fill Adjusted Funnel Plot", col = "red")
+  # funnel_adjusted <- funnel(trimfill_result, main = "Trim-and-Fill Adjusted Funnel Plot", col = "red")
   
   
   # Extract the original and adjusted effect sizes
   original_effect_size <- round(ma_smd$TE.random, 2)
+  adj <- quantile(ma_smd$TE.random, 0.8)
   adjusted_effect_size <- round(trimfill_result$TE.random, 2)
   
   # Extract Key Values for Annotations
@@ -126,20 +147,28 @@ for (f in fs) {
   # legend(x = quantile(ma_smd$TE, 0.97, na.rm = T), y = 0.01, legend = c("p < 0.1", "p < 0.05", "p < 0.01"), fill = col.contour)
   mtext(paste(mh_tool, ind, sep = ' - '), side = 3, line = 0.5, adj = 0.01, cex = 1.5)
   mtext(paste("Original Hedges' g =", original_effect_size), side = 3, line = -2, adj = 0.01, cex = 1.2)
-  mtext(paste("Egger’s test:", egger_pval), side = 3, line = -4, adj = 0.02, cex = 1.2)
+  mtext(paste("Egger’s test:", egger_plab), side = 3, line = -4, adj = 0.02, cex = 1.2, col = egger_pcol)
   
   # Add Annotations to the Funnel Lines
   text(original_effect_size, y_upper, labels = "Mean Effect Size", pos = 3, cex = 1.1, col = "black")
-  text(original_effect_size - 1, y_upper - 0.05, labels = "95% CI", pos = 3, cex = 1.1, col = "black")
-  text(original_effect_size + 1, y_upper - 0.05, labels = "95% CI", pos = 3, cex = 1.1, col = "black")
+  text(original_effect_size - adj, y_upper - 0.05, labels = "95% CI", pos = 3, cex = 1.1, col = "black")
+  text(original_effect_size + adj, y_upper - 0.05, labels = "95% CI", pos = 3, cex = 1.1, col = "black")
   
+  
+  # Define colors with transparency
+  original_color <- adjustcolor("blue", alpha.f = 0.6)  # 60% opacity
+  adjusted_color <- adjustcolor("red", alpha.f = 0.4)    # 60% opacity
   
   funnel(trimfill_result, 
          main = "Trim-and-Fill Adjusted Funnel Plot",
-         col = "red", cex = 1.5)
+         # col = c("red"),
+         # bg = c("blue", 'red'), 
+         col = ifelse(trimfill_result$studlab %in% ma_smd$studlab, original_color, adjusted_color),
+         pch = ifelse(trimfill_result$studlab %in% ma_smd$studlab, 21, 16),
+         cex = 1.5)
   legend("topright", legend = c("Original Studies", "Trim-and-Fill Adjusted"), 
-         col = "red", 
-         pt.bg = c("gray50", 'white'), pch = 21, pt.cex = 1.5, bty = "n", cex = 1.2)
+         col = c("blue", "red"), 
+         pt.bg = c("gray", 'red'), pch = 21, pt.cex = 1.5, bty = "n", cex = 1.2)
   mtext(paste(mh_tool, ind, sep = ' - '), side = 3, line = 0.5, adj = 0.01, cex = 1.5)
   mtext(paste("Adjusted Hedges' g =", adjusted_effect_size), side = 3, line = -2, adj = 0.01, cex = 1.2)
   

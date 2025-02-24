@@ -29,8 +29,31 @@ vv <- "v2"
 # Data
 
 ```{r}
-
 # unique(exp_sub_mods_md$Tools)
+fs <- list.files(path = "./data/0301-MA-input/", pattern = 'sub_.*_cleaned.csv$', full.names = T); fs
+
+source('./code/_parameters.R') # tool_selected_rct
+
+fs_exp <- fs[str_detect(fs, str_c(tool_selected_rct, collapse = "|"))]
+fs_exp <- fs_exp[str_detect(fs_exp, '_obs_', negate = T)]
+print(fs_exp)
+```
+
+
+
+```{r - loop one}
+## 
+f <- fs_exp[1]; f # DASS-21
+f <- fs_exp[2]; f # PANAS
+f <- fs_exp[3]; f # POMS
+f <- fs_exp[4]; f # PSS
+f <- fs_exp[5]; f # ROS
+f <- fs_exp[6]; f # STAI
+f <- fs_exp[7]; f # SVS
+
+mh_tool <- gsub('sub_|_cleaned.csv', '', basename(f)); mh_tool
+exp_sub_mods_md <- read_csv(f, show_col_types = F)
+
 
 ## data extracted in Table option 1 ----
 exp_sub_mods_md_o1 <- exp_sub_mods_md %>%
@@ -71,7 +94,7 @@ exp_sub_mods_md_o2fewCol <- exp_sub_mods_md_o2 %>%
   dplyr::select(-dplyr::starts_with("Control_"), 
                 -dplyr::starts_with('Treatment_'),
                 -c('c_sd'))
-names(exp_sub_mods_md_o2fewCol)
+# names(exp_sub_mods_md_o2fewCol)
 ```
 
 
