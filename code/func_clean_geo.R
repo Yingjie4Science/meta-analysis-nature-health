@@ -67,7 +67,7 @@ data(countryRegions,envir=environment(),package="rworldmap")
 #   select(country.name.en, iso.name.en, un.name.en, cldr.name.en, iso2c, iso3c)
 
 
-## World region data 1
+## 1. World region data 1
 codelist.supp <- data.frame(
   country.name.en = c('USA'),
   iso3c = c('USA'),
@@ -83,7 +83,9 @@ codelist <- SDGdetector::codelist_panel %>%
   ) %>%
   dplyr::distinct(country.name.en, iso3c, region)
 
-## World region data 2
+
+
+## 2. World region data 2
 getwd()
 
 f = list.files(path = paste0(here::here(), '/data/'), pattern = '*our_world_in_data.xlsx', full.names = T, include.dirs = T); f
@@ -95,7 +97,8 @@ region_owid <- readxl::read_excel(path = f) %>%
                 'ISO3' = 'Code') %>%
   as.data.frame()
 
-## World region data combined 
+
+## 3. World region data combined 
 countryCode_region <- countryRegions %>%
   dplyr::mutate(REGION = ifelse(REGION=='Australia', 'Oceania', REGION)) %>%
   left_join(., region_owid, by = 'ISO3') %>%

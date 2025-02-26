@@ -91,10 +91,15 @@ for (f in fs) {
 
 ## Save as xlsx
 writexl::write_xlsx(x = ma_result_all, path = './data/0302-MA-output/ma_result_all.xlsx')
+saveRDS(ma_result_all, file = './data/0302-MA-output/ma_result_all.RDS')
 ```
 
 
 ```{r - overall}
+
+f <- './data/0302-MA-output/ma_result_all.RDS'
+ma_result_all <- readRDS(file = f)
+
 # p1 <- ma_result_all %>%
 #   dplyr::filter(subgroup == 'Overall', tool == 'PANAS') %>%
 #   plot_effect_size_overall(data = ., subgroup = NULL)
@@ -344,7 +349,7 @@ for (subgroup_select in subgroups) {
     color_bygroup = gender_group_color; 
     group_list = gender_group_list
   } else if(subgroup_select == 'duration_group'){
-    group_title = 'Duration in nature'
+    group_title = 'Duration in nature (minutes)'
     color_bygroup = duration_group_color; 
     group_list = duration_group_list
   } else if(subgroup_select == 'Region'){
@@ -525,7 +530,7 @@ for (subgroup_select in subgroups) {
     color_bygroup = gender_group_color;
     group_list = gender_group_list
   } else if(subgroup_select == 'duration_group'){
-    group_title = 'Duration in nature'
+    group_title = 'Duration in nature (minutes)'
     color_bygroup = duration_group_color; 
     group_list = duration_group_list
   } else if(subgroup_select == 'Region'){

@@ -38,7 +38,9 @@ list_df <- lapply(ls, fread)
 
 # Bind all data frames together
 dfs1 <- rbindlist(list_df) %>%
-  filter(!is.na(c_mean))
+  ## remove row without any data from table option 2
+  dplyr::filter(!is.na(c_mean) & !is.na(e_mean) & !is.na(MH_indicator_o2)) %>%
+  as.data.frame()
 
 
 dfs1 %>%
