@@ -280,6 +280,8 @@ unique(df.c$Country) %>%
 
 
 
+
+
 ```{r **To-do**}
 ```
   [] 6686 is missing in the data for POMS 
@@ -300,6 +302,7 @@ unique(df.c$Country) %>%
 cols_keep <- c('Indicator', 'Tools', 'nature_type',  'nature_quantity', 'exposure_type',
                "study_design", 
                'duration_mins', 'duration_group', 
+               'Season',
                'male_percent_mean', 'gender_group', 
                'average_age_mean', 'age_group') 
 
@@ -486,9 +489,9 @@ df_cities <- readRDS('./data/dt_city_geocoded.rds') %>%
 ### load qa data
 f <- paste0(dir.output, 'qa_exp_data.csv')
 df_qa <- read_csv(f, show_col_types = F) %>%
-  select(id, 5:ncol(.)) %>%
-  mutate(id = gsub('#', '', id),
-         id = as.character(id))
+  dplyr::select(id, 5:ncol(.)) %>%
+  dplyr::mutate(id = gsub('#', '', id),
+                id = as.character(id))
 
 
 ### prepare data as SM or to share
@@ -520,6 +523,15 @@ df_ma_sm_unique <- df_ma_sm %>%
   dplyr::distinct(id, .keep_all = T)
 
 cat('\n\n There are', nrow(df_ma_sm_unique), 'papers were included for MA.\n')
+
+
+
+## unique cities
+df_ma_cities <- df_ma_sm %>%
+  dplyr::distinct(Country, City, .keep_all = F) %>%
+  arrange(Country)
+f <- './data/included_papers_cities.csv'
+readr::write_csv(x = df_ma_cities, file = f)
 ```
 
 
@@ -617,12 +629,24 @@ df %>%
 #   theme_bw()
 
 
+quantile(df$duration_mins, probs = seq(0.5, 1, by = 0.05), na.rm = T) 
+
+## ECDF plot (or Empirical Cumulative Density Function) 
+df %>%
+  dplyr::filter(duration_mins < 240 ) %>%
+  ggplot(., aes(duration_mins)) + 
+  stat_ecdf(geom = "step") +
+  theme_bw()
+
+
+duration_mins_upper <- 120 ## 85% quantile
+
 p_duration <- df %>% 
   # dplyr::filter(duration_mins < quantile(.$duration_mins, probs = 0.85, na.rm = T) ) %>%
-  dplyr::filter(duration_mins < 120 ) %>%
+  dplyr::filter(duration_mins < duration_mins_upper ) %>%
   ggplot() +
   geom_histogram(aes(x = duration_mins, fill = duration_group), binwidth = 10) +
-  scale_x_continuous(breaks = c(15, 30, 45, 60)) +
+  scale_x_continuous(breaks = seq(0, duration_mins_upper, by = 15)) +
   theme_bw() +
   theme(legend.position = c(0.8, 0.75), legend.background = element_rect(fill = "transparent", colour = "transparent"))
 
@@ -630,8 +654,45 @@ p_duration
 ```
 
 
+```{r season}
+
+# `df_ma_sm_unique` ## included data for MA
+
+df_ma_season <- df %>% 
+  dplyr::select(1, Season) %>%
+  dplyr::filter(id %in% unique(df_ma_sm_unique$id))  %>%
+  dplyr::mutate(
+    Season = gsub("Other: ", "", Season),
+    ## remove text within parenthesis 
+    Season = gsub("\\s*\\([^\\)]+\\)", "", Season),
+    Season = ifelse(Season == 'NA', NA, Season),
+  ) %>%
+  dplyr::filter( !is.na(Season) ) %>%
+  as.data.frame()
+
+
+
+## save this data for MA subgroup analysis 
+f <- paste0(dir.output, 'df_ma_season.RDS')
+saveRDS(df_ma_season, file = f)
+
+
+p_season <- df_ma_season %>% 
+  group_by(Season) %>%
+  tally() %>%
+  ggplot() +
+  geom_col(aes(x = reorder(Season,-n,sum), y = n)) +
+  theme_bw() +
+  theme(legend.position = c(0.8, 0.75), legend.background = element_rect(fill = "transparent", colour = "transparent")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+p_season
+```
+
+
+
 ```{r stat - combine - SM, warning=FALSE}
-ggarrange(p_age, p_gender, p_duration)
+ggarrange(p_age, p_gender, p_duration, p_season)
 
 fname <- paste0(dir.fig, paste0('stats_subgroup_', today, '.png')); #fname
 func_ggsave(fname = fname, w = 7, h = 7, save_png = T)
@@ -950,7 +1011,7 @@ readr::write_csv(x = exp_sub_mods_print, file = fi.c)
 fs <- list.files(path = './data/0301-MA-input/', pattern = '^sub_.*.RData', full.names = T) %>% sort()
 fs
 for (fi in fs) {
-  print(basename(f))
+  print(basename(fi))
   # exp_sub_df <- readRDS(f)
   load(fi)
   ##
