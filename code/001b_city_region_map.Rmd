@@ -59,7 +59,7 @@ pub_byYear_p <- pub_byYear %>%
   scale_x_continuous(breaks = c(seq(yr_min, yr_max, by=5), 2023)) +
   scale_y_continuous(position = "right") +
   xlab('Year')+
-  ylab('Number of publications')+
+  ylab('Number of publications per year')+
   theme_bw() +
   theme(panel.grid = element_blank())
 pub_byYear_p
@@ -146,7 +146,7 @@ region_count %>%
 
 f <- paste0('geo_paper_count_by_region_', today, '.png'); f
 fname <- paste0(dir.fig, f); fname
-func_ggsave(fname = fname, w = 7, h = 4, save_png = T)
+# func_ggsave(fname = fname, w = 7, h = 4, save_png = T)
 ```
 
 
@@ -196,26 +196,35 @@ shp <- sf::st_read('G:/Shared drives/gdrive/_data/shp/WorldMap_ShiJieGuojia.shp'
 region_count_sf <- region_count %>%
   merge(x= shp, y = ., by.x = 'iso_a3', by.y  = 'iso3c', all.x = T) 
 
+
+count_region_max <- max(region_count$n, na.rm = T); count_region_max
+count_city_max <- max(dt_city_count$count, na.rm = T); count_city_max
+count_city_limits <- quantile(dt_city_count$count, c(0,1), na.rm = T)
+
+
 pub_byregion_map <- region_count_sf %>%
   dplyr::filter(name != 'Antarctica') %>%
   ggplot(.) +
   geom_sf(aes(fill = n), size = 0.05, color = 'gray80') +
   # geom_sf_text(aes(label = iso_a3), colour = "gray", size =1) + 
-  scale_fill_distiller(name= '', palette = 'YlGnBu', direction = 1, na.value = "gray90") +
+  scale_fill_distiller(name= 'Number \nof papers\nby country', palette = 'YlGnBu', type = 'seq', direction = 1, na.value = "gray90") +
   
   geom_point(data = dt_city_count, 
              aes(x = lon, y = lat, 
                  # color = count, 
                  size = count), color = 'red', shape = 1, alpha = 0.35) +
-  scale_size_continuous(name = '', range = c(0.8, 3), breaks = c(1, 2, 4, 6, 8)) +
+  scale_size_continuous(name = 'Number \nof papers\nby city', range = c(0.8, 3), limits = , breaks = c(1, 2, 4, 8, count_city_max)) +
   # scale_color_gradient(low = "blue", high = "red") +
 
   # theme_bw() +
   theme_nothing() +
-  theme(legend.position = c(0.1, 0.4), 
+  # guides(fill=guide_legend(title="Number \nof papers\nby country", theme = theme(legend.title = element_text(size = 7))),
+  #        size=guide_legend(title="Number \nof papers\nby city",    theme = theme(legend.title = element_text(size = 7)))) +
+  theme(legend.position = c(0.1, 0.1), 
         legend.box = "horizontal") 
 
-pub_byregion_map
+# pub_byregion_map
+
 # f <- paste0('mini-review_paper_count_map_', today, '.png'); f
 # w_map = 6.4*2
 # h_map = 3.2*2
@@ -227,15 +236,15 @@ pub_byregion_map
 ```
 
 
-```{r - by year by region map}
+```{r - Combined plot - by year & region map}
 w_map <- 1.2
 plot.with.inset <-
   ggdraw() +
   draw_plot(pub_byYear_p) +
-  draw_plot(pub_byregion_map + theme(legend.text  = element_text(size = 8),
-                                     legend.title = element_text(size = 9),
-                                     legend.position = c(0.1, 0.3),
-                                     legend.key.size = unit(0.8, "lines")), 
+  draw_plot(pub_byregion_map + theme(legend.text  = element_text(size = 6),
+                                     legend.title = element_text(size = 7),
+                                     legend.position = c(0.15, 0.15),
+                                     legend.key.size = unit(0.7, "lines")), 
             x = -0.25, y = .35, width = w_map, height = w_map/2) +
   draw_label("", x = 0.02, y=0.95, fontface = 'bold')
 
@@ -245,6 +254,8 @@ plot.with.inset
 fname <- paste0(dir.fig, 'pub_byYearRegion_map_', today, '.png'); fname
 func_ggsave(fname = fname, w = 6.5, h = 2.8, dpi = 600, save_png = T)
 ```
+
+
 
 
 ```{r - map - cities in China}
@@ -293,7 +304,7 @@ func_ggsave(fname = fname, w = 6.5, h = 5, dpi = 300, save_png = T)
 
 
 
-```{r - ind + ctr}
+```{r - ind + ctr + region}
 dt.ind.cl_ctr  <- dt.ind.cl  %>%
   ## - clean `country` -------------------------------------------------------------------
   func_clean_country(., column_name = "Country") %>%
