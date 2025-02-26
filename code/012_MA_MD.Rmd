@@ -9,6 +9,10 @@ output: html_document
 
 ```{r include=FALSE}
 
+### To clear your environment
+remove(list = ls())
+
+
 ## Load common packages
 source("./code/_pkgs_dirs.R")
 
@@ -21,7 +25,7 @@ packageVersion("meta")
 
 ##' an extra post fix for figure's version control
 vv <- ""
-vv <- "v2"
+# vv <- "v2"
 ```
 
 
@@ -42,6 +46,14 @@ print(fs_exp)
 
 
 ```{r - loop one}
+
+
+## to add season info
+f <- paste0(dir.output, 'df_ma_season.RDS')
+df_ma_season <- readRDS(f)
+
+
+
 ## 
 f <- fs_exp[1]; f # DASS-21
 f <- fs_exp[2]; f # PANAS
@@ -51,8 +63,14 @@ f <- fs_exp[5]; f # ROS
 f <- fs_exp[6]; f # STAI
 f <- fs_exp[7]; f # SVS
 
+
+
+## load data for MA and add season 
 mh_tool <- gsub('sub_|_cleaned.csv', '', basename(f)); mh_tool
-exp_sub_mods_md <- read_csv(f, show_col_types = F)
+exp_sub_mods_md <- read_csv(f, show_col_types = F) %>%
+  mutate(id = as.character(id)) %>%
+  left_join(., df_ma_season, by = 'id') %>%
+  select(1:age_group, Season, everything())
 
 
 ## data extracted in Table option 1 ----
@@ -115,7 +133,7 @@ cat('... Working on', mh_tool, '... \n\t', sub_indicator_selected, '\n\n')
 
 ##' plot for double-checking
 show_raw_data_in_forest <- F
-add_subgroup_analysis   <- F
+add_subgroup_analysis   <- T
 
 
 subgroups <- c(
@@ -123,6 +141,7 @@ subgroups <- c(
   'exposure_o2',
   'nature_type_o2', 
   'Region',
+  'Season',
   'age_group', 'gender_group', 'duration_group')
 
 

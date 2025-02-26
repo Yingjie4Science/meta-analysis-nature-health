@@ -266,8 +266,9 @@ source('./code/func_color_bygroup.R')
 
 subgroups <- c(
   'subgroup_design', 'exposure_o2',
-  'nature_type_o2', 
+  'nature_type_o2',
   'Region',
+  'Season',
   'age_group', 'gender_group', 'duration_group') %>%  sort()
 
 
@@ -352,6 +353,12 @@ for (subgroup_select in subgroups) {
     group_title = 'Duration in nature (minutes)'
     color_bygroup = duration_group_color; 
     group_list = duration_group_list
+  } else if(subgroup_select == 'Season'){
+    group_title = str_to_sentence(gsub('_|_o2', ' ', subgroup_select)) %>% trimws()
+    main_seasons = c('Spring', 'Summer', 'Fall', 'Winter')
+    mixed_season = unique(ma_result_all_sub$subgroup) %>% sort()
+    group_list = c(main_seasons, unique(mixed_season[!(mixed_season %in% main_seasons)]))
+    color_bygroup = func_color_bygroup(df = ma_result_all_sub, column_name = 'subgroup') 
   } else if(subgroup_select == 'Region'){
     group_title = subgroup_select
     color_bygroup = region_color; 
@@ -409,7 +416,7 @@ for (f in fs) {
 
 
 
-```{r - run}
+```{r - demo run, eval=FALSE, include=FALSE}
 
 subgroups
 subgroup_select <- 'exposure_o2'
@@ -505,6 +512,8 @@ func_ggsave(fname, w = 7, h = 6, save_png = T)
 
 ```{r - loop run}
 
+source('code/func_comparing_means_Dunns.R')
+
 for (subgroup_select in subgroups) {
   
   ma_result_each_i <- ma_result_each  %>%
@@ -533,6 +542,12 @@ for (subgroup_select in subgroups) {
     group_title = 'Duration in nature (minutes)'
     color_bygroup = duration_group_color; 
     group_list = duration_group_list
+  } else if(subgroup_select == 'Season'){
+    group_title = str_to_sentence(gsub('_|_o2', ' ', subgroup_select)) %>% trimws()
+    main_seasons = c('Spring', 'Summer', 'Fall', 'Winter')
+    mixed_season = unique(ma_result_all_sub$subgroup) %>% sort()
+    group_list = c(main_seasons, unique(mixed_season[!(mixed_season %in% main_seasons)]))
+    color_bygroup = func_color_bygroup(df = ma_result_all_sub, column_name = 'subgroup') 
   } else if(subgroup_select == 'Region'){
     group_title = subgroup_select
     color_bygroup = region_color;

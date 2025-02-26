@@ -129,6 +129,7 @@ func_test_dif_dunn2 <- function(df,
     p <- ggboxplot(df, x = "Group", y = "Value", fill = "Group", size = 0.3) +
       stat_pvalue_manual(dunn_results, step.increase = 0.06, color = 'gray50', hide.ns = TRUE) +  # Add p-values
       scale_y_continuous(expand = expansion(mult = c(0.05, 0.08))) +  # Add 8% space at the top
+      scale_fill_manual(values = color_bygroup) +
       facet_wrap(~ get(facet_by), scales = "free_y", ncol = 4) +  # Facet by group
       theme_bw() +
       labs(x = group_title, y = "Mean effect sizes") +
@@ -139,6 +140,7 @@ func_test_dif_dunn2 <- function(df,
     p <- 
       ggboxplot(df, x = "Group", y = "Value", fill = 'Group') +
       stat_pvalue_manual(test_comb, color = 'gray50', hide.ns = TRUE) +
+      scale_fill_manual(values = color_bygroup) +
       theme_bw() +
       theme(legend.position="none")
   }
