@@ -1,0 +1,133 @@
+---
+title: "Untitled"
+author: "Yingjie"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+
+```{r helper data}
+f <- './data/included_papers_for_MA.csv'
+df_ma_lit <- readr::read_csv(f, col_types = 'c') %>%
+  dplyr::distinct(id, City) %>%
+  filter(!is.na(City))
+```
+
+
+```{r urban density}
+
+getwd()
+
+## Load common packages
+source("./code/_pkgs_dirs.R")
+
+
+##' There are several different dataset on urban density, and the definition of urban or city 
+##'   varies across countries and regions. 
+##'   
+##' To address the inconstancy issue, we use the Global Human Settlement Layer (GHSL), a more 
+##'   harmonized urban statistics for cities worldwide, including population, built-up areas, and density metrics.
+##'   
+##' We also compare the data to other sources and use that to fill the data gap if some cities are not 
+##'   available in GHSL. 
+
+
+## data 1: web search + ChatGPT search 
+f <- paste0(dir.input, 'urban_density_data_web.txt')
+df_ma_urban1 <- read_delim(f, delim = ';', show_col_types = F) %>%
+  rename('density_people_per_km2' = "Population Density (people/km²)")
+
+
+## data 2: GHSL 
+f <- paste0('D:/data/GHS Urban Centre Database/GHS_UCDB_THEME_GENERAL_CHARACTERISTICS_GLOBE_R2024A_V1_0/', 
+            'GHS_UCDB_THEME_GENERAL_CHARACTERISTICS_GLOBE_R2024A.csv')
+df_ma_urban2 <- read_csv(f, show_col_types = F) %>%
+  select(GC_UCN_MAI_2025, GC_CNT_UNN_2025, GC_UCA_KM2_2025, GC_POP_TOT_2025) %>%
+  mutate(GC_pop_density = GC_POP_TOT_2025/GC_UCA_KM2_2025)
+names(df_ma_urban2)
+```
+
+
+
+```{r merge data}
+## merge data for comparison 
+df_ma_urb <- df_ma_urban1 %>%
+  left_join(., df_ma_urban2, by = c('Original_City_Name' = 'GC_UCN_MAI_2025')) %>%
+  mutate(dif = GC_pop_density - density_people_per_km2)
+
+
+## save data for sharing 
+f <- paste0(dir.input, 'urban_density_combined.csv')
+readr::write_csv(x = df_ma_urb, file = f)
+
+
+
+df_ma_urb %>%
+  ggplot(., aes(x = GC_pop_density, density_people_per_km2)) +
+  geom_point() +
+  geom_abline(slope = 1, color = 'red')
+```
+
+  
+  The data merge cannot cover all the cities, and we manually fill the data gap by searching for alternative city names and data sources. 
+  
+  Here is the final data saved in Google Sheet. 
+  
+  Population density classification systems
+    - United Nations (UN-Habitat) Urban Density Classification
+      Rural	                                  < 300
+      Low-Density Urban	                      300 - 1,500
+      Medium-Density Urban	                  1,500 - 5,000
+      High-Density Urban	                    5,000 - 10,000
+      Very High-Density Urban (Metropolitan)	10,000+
+    - GHS-UCDB (Global Human Settlement) Urban Centre [Classification](https://human-settlement.emergency.copernicus.eu/degurbaDefinitions.php)
+      Rural	            < 300	           --> Rural grid cells (mostly *low* density cells)*
+      Small Town	      300 - 1,500	     --> Urban cluster (or *moderate* density clusters)
+      Intermediate City	1,500 - 5,000	   --> Urban centre (or *high* density cluster)
+      Large City	      5,000 - 10,000
+      Metropolis	      10,000+
+    - OECD (Organization for Economic Co-operation and Development) Urban Classification
+    - World Bank Urban Density Classification
+    - Brice B. Hanberry 2022, *Imposing consistent global definitions of urban populations with gridded population density models: Irreconcilable differences at the national scale*. https://doi.org/10.1016/j.landurbplan.2022.104493
+      100–500     as exurban high density 
+      500–1500    as suburban
+      1500–4500   as urban low density
+      > 4500      as urban high density
+  
+  
+```{r final data}
+
+library(googlesheets4)
+f <- 'https://docs.google.com/spreadsheets/d/10dX4Qx8n25ZkW2cIVHss7OpxFrhPvQT919ZfyFtu0zQ/edit?usp=sharing'
+
+# # Re-authenticate with the correct scope
+# gs4_auth(scopes = "https://www.googleapis.com/auth/spreadsheets")
+
+df_ma_urban <- googlesheets4::read_sheet(f, sheet = 'included_cities', range = 'A:F', col_types = 'c') %>%
+  as.data.frame() %>%
+  dplyr::select(-c(Note,	GHS_area,	GHS_pop)) %>%
+  dplyr::mutate(GHS_density = as.numeric(GHS_density)) %>%
+  filter(!City %in% c('NA')) %>%
+  filter(!is.na(GHS_density)) %>%
+  ## add population density classification systems
+  dplyr::mutate(density_class = case_when(
+    GHS_density >= 5000 ~ 'High density',
+    GHS_density >= 1500 ~ 'Medium density',
+    GHS_density >= 300  ~ 'Low density',
+    T ~ 'Low density',
+  )) %>%
+  ## add paper id 
+  left_join(., df_ma_lit, by = 'City') %>%
+  select(id, density_class, everything()) %>%
+  as.data.frame()
+
+
+## save data for further analysis 
+f <- paste0(dir.output, 'df_ma_urban.RDS')
+saveRDS(object = df_ma_urban, file = f)
+
+
+hist(df_ma_urban$GHS_density, nclass = 9)
+```
+

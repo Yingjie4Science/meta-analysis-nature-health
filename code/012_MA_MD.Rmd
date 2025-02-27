@@ -32,7 +32,22 @@ vv <- ""
 
 # Data
 
-```{r}
+```{r - help data}
+
+## to add season info
+f <- paste0(dir.output, 'df_ma_season.RDS')
+df_ma_season <- readRDS(f)
+
+
+## to add urban density data
+f <- paste0(dir.output, 'df_ma_urban.RDS')
+df_ma_urban <- readRDS(f) %>%
+  select(id, density_class)
+```
+
+
+
+```{r - ma data}
 # unique(exp_sub_mods_md$Tools)
 fs <- list.files(path = "./data/0301-MA-input/", pattern = 'sub_.*_cleaned.csv$', full.names = T); fs
 
@@ -44,19 +59,12 @@ print(fs_exp)
 ```
 
 
-
-```{r - loop one}
-
-
-## to add season info
-f <- paste0(dir.output, 'df_ma_season.RDS')
-df_ma_season <- readRDS(f)
-
+```{r - loop one by one}
 
 
 ## 
-f <- fs_exp[1]; f # DASS-21
-f <- fs_exp[2]; f # PANAS
+# f <- fs_exp[1]; f # DASS-21
+# f <- fs_exp[2]; f # PANAS
 f <- fs_exp[3]; f # POMS
 f <- fs_exp[4]; f # PSS
 f <- fs_exp[5]; f # ROS
@@ -65,12 +73,17 @@ f <- fs_exp[7]; f # SVS
 
 
 
-## load data for MA and add season 
+## load data for MA and add season and urban density 
 mh_tool <- gsub('sub_|_cleaned.csv', '', basename(f)); mh_tool
 exp_sub_mods_md <- read_csv(f, show_col_types = F) %>%
   mutate(id = as.character(id)) %>%
+  dplyr::select(-any_of(c('Season'))) %>%
+  ## add season 
   left_join(., df_ma_season, by = 'id') %>%
-  select(1:age_group, Season, everything())
+  select(1:duration_group, Season, everything()) %>%
+  ## add urban density 
+  left_join(., df_ma_urban, by = 'id') %>%
+  select(1:Season, density_class, everything())
 
 
 ## data extracted in Table option 1 ----
@@ -142,6 +155,7 @@ subgroups <- c(
   'nature_type_o2', 
   'Region',
   'Season',
+  'density_class',
   'age_group', 'gender_group', 'duration_group')
 
 

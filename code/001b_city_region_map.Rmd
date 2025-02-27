@@ -9,7 +9,7 @@ output:
 
 # Load data
 
-```{r}
+```{r include=FALSE}
 Sys.setenv(LANG = "en")
 
 ## Load common packages

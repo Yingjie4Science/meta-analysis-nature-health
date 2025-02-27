@@ -269,6 +269,7 @@ subgroups <- c(
   'nature_type_o2',
   'Region',
   'Season',
+  'density_class',
   'age_group', 'gender_group', 'duration_group') %>%  sort()
 
 
