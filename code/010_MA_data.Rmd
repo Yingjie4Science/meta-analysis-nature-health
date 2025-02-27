@@ -943,12 +943,12 @@ exposure_type_i   <- c('Residential', 'In nature - Static', 'In nature - PA', 'I
 
 
 ## test 
-df_test <- df %>%
-  dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
-  as.data.frame()
-
-df_test %>%
-  group_by(effect_size_indices) %>% count(effect_size_indices)
+# df_test <- df %>%
+#   dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
+#   as.data.frame()
+# 
+# df_test %>%
+#   group_by(effect_size_indices) %>% count(effect_size_indices)
 
 exp_sub_df <- func_exp_subset(df = df, exposure_type_i = exposure_type_i, mh_tool = mh_tool)
 exp_sub_df %>%
@@ -993,12 +993,12 @@ mh_tool_exp <- c('PANAS', 'POMS', 'ROS', 'STAI', 'SVS', 'PSS', 'DASS-21');  desi
 
   Run this chunk only if you have already executed one of the selected MH tool chunks above.
   
-```{r - 1. batch one}
+```{r - 1. Demo one, eval=FALSE, include=FALSE}
 ##' 1. Choose one as input --------------------------------
 ##'   `mh_tool`, `exposure_type_i`, `effect_size_ind_i`, `exp_sub_df`
 fi <- paste0('./data/0301-MA-input/', 'sub_', paste(mh_tool, collapse = '_'), '.RData'); fi
 
-load(fi)
+load(fi) ## `exp_sub_df`
 source('./code/010s1_loop_format_data.R')
 fi.c <- gsub('.rds|.RData', '_cleaned.csv', fi); fi.c
 readr::write_csv(x = exp_sub_mods_print, file = fi.c)
