@@ -42,7 +42,12 @@ df_ma_season <- readRDS(f)
 ## to add urban density data
 f <- paste0(dir.output, 'df_ma_urban.RDS')
 df_ma_urban <- readRDS(f) %>%
-  select(id, density_class)
+  select(id, density_class) %>%
+  ##' would be better to match by paper id and by city, as one paper id might include multiple 
+  ##'   studies and cities. Here we use a simple approach and assume each paper focused on one city
+  ##'   or a cluster of cities with similar characteristics 
+  dplyr::distinct(id, density_class) 
+
 ```
 
 
@@ -65,7 +70,7 @@ print(fs_exp)
 ## 
 # f <- fs_exp[1]; f # DASS-21
 # f <- fs_exp[2]; f # PANAS
-f <- fs_exp[3]; f # POMS
+# f <- fs_exp[3]; f # POMS
 f <- fs_exp[4]; f # PSS
 f <- fs_exp[5]; f # ROS
 f <- fs_exp[6]; f # STAI
@@ -76,14 +81,17 @@ f <- fs_exp[7]; f # SVS
 ## load data for MA and add season and urban density 
 mh_tool <- gsub('sub_|_cleaned.csv', '', basename(f)); mh_tool
 exp_sub_mods_md <- read_csv(f, show_col_types = F) %>%
-  mutate(id = as.character(id)) %>%
+  dplyr::mutate(id = as.character(id)) %>%
   dplyr::select(-any_of(c('Season'))) %>%
+  
   ## add season 
   left_join(., df_ma_season, by = 'id') %>%
   select(1:duration_group, Season, everything()) %>%
+  
   ## add urban density 
   left_join(., df_ma_urban, by = 'id') %>%
   select(1:Season, density_class, everything())
+
 
 
 ## data extracted in Table option 1 ----

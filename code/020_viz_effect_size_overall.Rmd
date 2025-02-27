@@ -26,7 +26,7 @@ source('./code/func_plot_ma.R')
 
 
 ##' an extra post fix for figure's version control
-vv <- "v1"
+vv <- "v2"
 # vv <- "vPr" ## simplified figure version for presentation
 ```
 
@@ -346,6 +346,12 @@ for (subgroup_select in subgroups) {
     group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
     color_bygroup = age_group_color; 
     group_list = age_group_list
+  } else if(subgroup_select == 'density_class'){
+    group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
+    main_cat = c('Low density', 'Medium density', 'High density')
+    mixed_cat = unique(ma_result_all_sub$subgroup) %>% sort()
+    group_list = c(main_cat, unique(mixed_cat[!(mixed_cat %in% main_cat)]))
+    color_bygroup = func_color_bygroup(df = ma_result_all_sub, column_name = 'subgroup') 
   } else if(subgroup_select == 'gender_group'){
     group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
     color_bygroup = gender_group_color; 
@@ -535,6 +541,12 @@ for (subgroup_select in subgroups) {
     group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
     color_bygroup = age_group_color;
     group_list = age_group_list
+  } else if(subgroup_select == 'density_class'){
+    group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
+    main_cat = c('Low density', 'Medium density', 'High density')
+    mixed_cat = unique(ma_result_each_i$subgroup) %>% sort()
+    group_list = c(main_cat, unique(mixed_cat[!(mixed_cat %in% main_cat)]))
+    color_bygroup = func_color_bygroup(df = ma_result_each_i, column_name = 'subgroup') 
   } else if(subgroup_select == 'gender_group'){
     group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
     color_bygroup = gender_group_color;
@@ -546,9 +558,9 @@ for (subgroup_select in subgroups) {
   } else if(subgroup_select == 'Season'){
     group_title = str_to_sentence(gsub('_|_o2', ' ', subgroup_select)) %>% trimws()
     main_seasons = c('Spring', 'Summer', 'Fall', 'Winter')
-    mixed_season = unique(ma_result_all_sub$subgroup) %>% sort()
+    mixed_season = unique(ma_result_each_i$subgroup) %>% sort()
     group_list = c(main_seasons, unique(mixed_season[!(mixed_season %in% main_seasons)]))
-    color_bygroup = func_color_bygroup(df = ma_result_all_sub, column_name = 'subgroup') 
+    color_bygroup = func_color_bygroup(df = ma_result_each_i, column_name = 'subgroup') 
   } else if(subgroup_select == 'Region'){
     group_title = subgroup_select
     color_bygroup = region_color;

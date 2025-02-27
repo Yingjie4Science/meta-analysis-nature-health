@@ -18,10 +18,10 @@ func_exp_subset <- function(df, exposure_type_i, mh_tool) {
     dplyr::filter(stringr::str_detect(Tools, paste(mh_tool, collapse = "|"))) %>%
     
     ## subset cols -----------------------------------------------------------------------
-  dplyr::select(id:`Effect size indices`, effect_size_indices, 
+    dplyr::select(id:`Effect size indices`, effect_size_indices, 
                 everything()) %>%
     dplyr::select(id:Country, 
-                  all_of(cols_keep), 
+                  any_of(cols_keep), 
                   n_participants, buffers, buffers_unit,
                   effect_size_indices:ncol(.)) %>%
     dplyr::select(-c('Title', 'Reviewer_id', 'meet_criteria')) %>% ## keep "Reviewer" to match data from gsheet
