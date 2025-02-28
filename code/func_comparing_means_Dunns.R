@@ -126,7 +126,7 @@ func_test_dif_dunn2 <- function(df,
   
   if (!is.null(facet_by)) {
 
-    p <- ggboxplot(df, x = "Group", y = "Value", fill = "Group", size = 0.3) +
+    p <- ggboxplot(df, x = "Group", y = "Value", fill = "Group", add = "jitter", add.params = list(shape=1, size=0.5, alpha=0.5), size = 0.2) +
       stat_pvalue_manual(dunn_results, step.increase = 0.06, color = 'gray50', hide.ns = TRUE) +  # Add p-values
       scale_y_continuous(expand = expansion(mult = c(0.05, 0.08))) +  # Add 8% space at the top
       scale_fill_manual(values = color_bygroup) +
