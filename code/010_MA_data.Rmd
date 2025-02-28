@@ -235,52 +235,6 @@ writexl::write_xlsx(x = df_design, path = paste0(dir.output, "df_study_design.xl
 
 
 
-```{r stats for MS}
-
-nrow(df) %>%
-  cat(., 'unique papers were included in data extraction.\n\n')
-
-
-##' n_participants -----------------------------------------------------------------------
-df.n <- df %>%
-  dplyr::select(1:2, n_participants) %>%
-  expand_col_to_long(data = ., target_col = 'n_participants') %>%
-  dplyr::mutate(n_participants = as.numeric(n_participants)) %>%
-  as.data.frame()
-
-summary(df.n$n_participants)
-sum(df.n$n_participants, na.rm = T)
-
-
-
-
-##' Country coverage ---------------------------------------------------------------------
-##' 
-## count number of countries in these included studies 
-df.c <- df %>%
-  dplyr::select(1:2, Country) %>%
-  expand_col_to_long(data = ., target_col = 'Country') %>%
-  func_clean_country(column_name = 'Country') %>%
-  as.data.frame()
-
-
-## rank countries by # of papers
-df.c %>%
-  group_by(Country) %>%
-  tally() %>% arrange(desc(n)) %>%
-  head() 
-
-# unique(df.c$Country) %>% sort()
-
-unique(df.c$Country) %>%
-  length() %>%
-  cat('\n\n', ., 'unique countries are incldued in the meta-analysis.')
-```
-
-
-
-
-
 
 ```{r **To-do**}
 ```
@@ -303,6 +257,7 @@ cols_keep <- c('Indicator', 'Tools', 'nature_type',  'nature_quantity', 'exposur
                "study_design", 
                'duration_mins', 'duration_group', 
                'Season',
+               'n_participants',
                'male_percent_mean', 'gender_group', 
                'average_age_mean', 'age_group') 
 
@@ -473,7 +428,9 @@ func_alluvial(data = df_exp_tool_flow3,
 ```
 
 
-```{r ~ included studies for MA in the MS}
+
+```{r -- Included studies for MA in the MS}
+
 ### only include the top n MH tools ------------------------------------------------------
 source('./code/_parameters.R')
 # to load `tool_selected_rct`
@@ -516,26 +473,114 @@ df_ma_sm <- df_exp_l_toolL %>%
 ## save data for sharing 
 f <- './data/included_papers_for_MA.csv'
 readr::write_csv(x = df_ma_sm, file = f)
+```
 
-  
-## unique papers
+
+```{r -- stats for MS, paged.print=FALSE}
+
+## number of papers ----------------------------------------------------------------------
+##' 1. unique papers for data extraction. N = 206
+nrow(df) %>%
+  cat(., 'unique papers with complete data extraction.\n')
+
+
+##' 2. unique papers for MA. N = 78
 df_ma_sm_unique <- df_ma_sm %>%
   dplyr::distinct(id, .keep_all = T)
 
-cat('\n\n There are', nrow(df_ma_sm_unique), 'papers were included for MA.\n')
+cat(nrow(df_ma_sm_unique), 'papers were included for MA.\n\n')
 
 
 
-## unique cities
+
+##' n_participants -----------------------------------------------------------------------
+df_ma_n <- df_ma_sm %>%
+  dplyr::select(1:2, n_participants) %>%
+  expand_col_to_long(data = ., target_col = 'n_participants') %>%
+  dplyr::mutate(n_participants = as.numeric(n_participants)) %>%
+  dplyr::distinct(id, .keep_all = T) %>%
+  as.data.frame()
+
+summary(df_ma_n$n_participants)
+sum(df_ma_n$n_participants, na.rm = T) %>% ## n = 5875
+  cat('\n', ., 'participants were included in the final MA. \n\n')
+
+
+
+##' Country coverage ---------------------------------------------------------------------
+##' 
+##' 1. for sys review (N = 466)
+
+f <- './data/included_papers_for_systematic_review.csv' 
+df_sys <- read_csv(f, show_col_types = F)
+
+## count number of countries in these included studies 
+df_sys.c <- df_sys %>%
+  dplyr::select(1:2, Country) %>%
+  expand_col_to_long(data = ., target_col = 'Country') %>%
+  func_clean_country(column_name = 'Country') %>%
+  dplyr::distinct(`Study ID`, Country) %>%
+  dplyr::mutate(
+    Country = case_when(
+      Country %in% c('m', 'M', 'NA', 'Global', 'Europe', 'all over the world') ~ NA,
+      TRUE ~ Country)) %>%
+  as.data.frame()
+
+
+## rank countries by # of papers --> see `geo_paper_count_by_region_20250227.png`
+df_sys.c %>%
+  group_by(Country) %>%
+  tally() %>% arrange(desc(n)) %>%
+  head() 
+
+# unique(df_sys$Country) %>% sort()
+
+unique(df_sys.c$Country) %>%
+  length() %>%
+  cat('\n\n', ., 'unique countries are incldued in the sys review.\n\n') ## N = 48
+
+
+
+##' 2. for MA (N = 78)
+##' 
+## count number of countries in these included studies 
+df_ma_sm.c <- df_ma_sm %>%
+  dplyr::distinct(id, Country) %>%
+  expand_col_to_long(data = ., target_col = 'Country') %>%
+  func_clean_country(column_name = 'Country') %>%
+  as.data.frame()
+
+
+## rank countries by # of papers
+df_ma_sm.c %>%
+  group_by(Country) %>%
+  tally() %>% arrange(desc(n)) %>%
+  head() 
+
+# unique(df.c$Country) %>% sort()
+
+unique(df_ma_sm.c$Country) %>%
+  length() %>%
+  cat('\n\n', ., 'unique countries are incldued in the meta-analysis.\n\n') ## N = 20
+
+
+## unique cities -------------------------------------------------------------------------
 df_ma_cities <- df_ma_sm %>%
   dplyr::distinct(Country, City, .keep_all = F) %>%
   arrange(Country)
 f <- './data/included_papers_cities.csv'
 readr::write_csv(x = df_ma_cities, file = f)
+
+df_ma_cities %>%
+  filter(!is.na(City)) %>%
+  distinct(City) %>%
+  nrow() %>%
+  cat('', ., 'unique cities are incldued in the meta-analysis.\n\n') ## N = 58
 ```
 
-
-```{r - data check, eval=FALSE, include=FALSE}
+  *data check*
+  
+```{r, eval=FALSE, include=FALSE}
 ## double-check with the included 84 studies in quality assessment (qa) ------------------
 f <- './data/0302-MA-output/gsheet_qa_experimental_studies.CVS'
 df_ma_qa <- readr::read_csv(f, show_col_types = F) %>%

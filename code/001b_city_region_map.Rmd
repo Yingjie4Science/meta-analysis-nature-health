@@ -68,14 +68,15 @@ f <- paste0(dir.fig, 'pub_byYear.png'); f
 # func_ggsave(fname = f, w = 7, h = 4, save_png = T)
 ```
 
-```{r - region - bar}
+```{r - region - bar, paged.print=FALSE}
 
 reg_id <- dt %>%
   dplyr::select(1, Country) %>%
   dplyr::filter(!is.na(Country)) %>%
   dplyr::mutate(Country = case_when(
-    Country %in% c('m', 'NA', 'Global', 'Europe', 'all over the world') ~ 'TBD',
-    TRUE ~ Country)) 
+    Country %in% c('m', 'M', 'NA', 'Global', 'Europe', 'all over the world') ~ 'TBD',
+    TRUE ~ Country)) %>%
+  dplyr::distinct(id, Country)
 
 reg_count <- reg_id %>%
   group_by(Country) %>%
@@ -92,6 +93,7 @@ region_iso3c_id <- reg_id %>%
   func_clean_country(data = ., column_name = "Country") %>%
   func_add_region(.) %>%
   dplyr::select(id, everything()) %>%
+  dplyr::distinct(id, iso3c, Country, .keep_all = T) %>%
   arrange(id) %>%
   as.data.frame()
 
@@ -129,6 +131,7 @@ region_count <- region_iso3c_id %>%
 region_count %>% 
   dplyr::mutate(facet = ifelse(n>=5, 0, 1)) %>%
   # dplyr::slice_max(order_by = n, n = 20) %>%
+  filter(!is.na(iso3c)) %>%
   ggplot(aes(x = reorder(iso3c, n), 
              y = n,
              fill = Region
@@ -146,7 +149,7 @@ region_count %>%
 
 f <- paste0('geo_paper_count_by_region_', today, '.png'); f
 fname <- paste0(dir.fig, f); fname
-# func_ggsave(fname = fname, w = 7, h = 4, save_png = T)
+func_ggsave(fname = fname, w = 7, h = 4, save_png = T)
 ```
 
 
