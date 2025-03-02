@@ -1,0 +1,209 @@
+---
+title: "Untitled"
+author: "Yingjie"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+
+## Load trim and filled MA results
+
+```{r}
+
+fs <- list.files(path = dir.output, pattern = '^ma_trimfill_', full.names = T);
+print(fs)
+
+```
+
+
+## Extract ES info
+
+  Use code from `012_MA_MD.Rmd` to extract ma data for comparason. 
+  
+```{r}
+
+
+ma_result_all_filled <- data.frame()
+
+for (f in fs) {
+  
+  ## load data
+  ma_smd <- readRDS(f)
+  
+  ## get `tool` and `ind` info
+  tool_ind <- basename(f) %>% gsub('ma_trimfill_|.RDS', '', .) 
+  # Split into two parts
+  split_string <- str_split_fixed(tool_ind, "_", 2)
+  mh_tool <- split_string[1]
+  ind <- split_string[2]
+  
+  ##' 1. extract the *overall* effect size data to a dataframe
+  ma_smd.df <- data.frame(
+    tool = mh_tool, 
+    ind_sub = ind,
+    group_name = '',
+    subgroup = 'Overall',
+    es.mean = ma_smd$TE.random,
+    es.lower= ma_smd$lower.random,
+    es.upper= ma_smd$upper.random,
+    pval    = ma_smd$pval.random %>% round(., digits = 10),
+    I2      = as.numeric(ma_smd$I2) %>% round(., digits = 2),
+    p_subgroup = NA,
+    ## Number of studies
+    n_study = ma_smd$k.all,
+    ## Number of observations
+    n_obs   = NA
+  ) %>%
+    dplyr::mutate(
+      p.star  = case_when(
+        pval < 0.001 ~ '***',
+        pval < 0.01 ~ '**',
+        pval < 0.05 ~ '*',
+        T ~ ''))
+  
+  ##' bind results 
+  ma_result_all_filled <- rbind(ma_result_all_filled, ma_smd.df)
+}
+
+
+## save data
+f <- './data/0302-MA-output/ma_result_all_filled.RDS'
+saveRDS(ma_result_all_filled, file = f)
+```
+
+
+
+## Viz and compare original vs. trim-filled ES
+
+```{r - original es}
+f <- './data/0302-MA-output/ma_result_all.RDS'
+ma_result_all <- readRDS(file = f) %>%
+  select(-design) %>%
+  dplyr::filter(subgroup == 'Overall') 
+
+```
+
+
+```{r - trimfill es}
+
+source('./code/func_plot_ma.R')
+design <- 'exp_obs'
+vv <- ''
+
+
+## load data
+f <- './data/0302-MA-output/ma_result_all_filled.RDS'
+ma_result_all_filled <- readRDS(file = f) %>%
+  ## remove this first -- testing
+  dplyr::filter(!tool %in% c('DASS-21')) %>%
+  dplyr::filter(subgroup == 'Overall') 
+
+
+## viz
+data <- ma_result_all_filled 
+
+x_limit_max <- max(abs(data$es.lower), abs(data$es.upper), na.rm = T) * 1.2
+x_limit_max
+
+p <- data %>%
+  plot_effect_size_overall(data = ., 
+                           color_var = 'tool', 
+                           text_size = 11,
+                           show_legend = T) +
+  theme(legend.position = c(0.85, 0.85),
+        # legend.spacing.y = unit(0, 'cm'),
+        legend.spacing.x = unit(0.2, 'cm'),
+        legend.key.size = unit(0.2, 'cm'),
+        plot.margin = margin(t=0, r=0, b=0, l=0, "pt")) +
+  guides(color = guide_legend(title="MH Tools"))
+
+
+if(design == 'obs_exp') {
+  p <- p +
+    geom_text(aes(label = design, 
+                  fontface = ifelse(design=='obs', "bold.italic", "italic"),
+                  family = "serif",
+                  x = -2.8),
+              vjust = 0.5, show.legend = F, color ='gray50') +
+    scale_x_continuous(limits = c(-x_limit_max, x_limit_max))
+} else {
+  p <- p
+}
+
+
+n_ind <- length(unique(data$ind_sub)); 
+
+
+## parameters for presentation figure
+if(vv == "vPr") {
+  ## 
+  p <- p +
+    annotate("segment", x = -x_limit_max, xend = x_limit_max, y = 2.5, colour = "gray70", size = 0.5)
+  hh <- 5.5/2/6*n_ind + 1
+} else {
+  ## add hline to seperate postive vs negative indicators
+  p <- p +
+    annotate("segment", x = -x_limit_max, xend = x_limit_max, y = 4.5, colour = "gray70", size = 0.5)
+  hh <- 5.5/2/6*n_ind+0 ## +2
+}
+
+p
+fname <- paste0(dir.fig, 'es_comb_', design, '_trimfill_', today, vv, '.png'); fname
+func_ggsave(fname, w = 6, h = hh, dpi = 500, save_png = T)
+
+
+```
+
+
+
+```{r - compare}
+
+ma_result_all$version <- 'original'
+ma_result_all_filled$version <- 'trimfill'
+  
+ma_result_compare <- rbind(
+  ma_result_all,
+  ma_result_all_filled
+) %>%
+  mutate(tool_ind = paste(ind_sub, tool, sep = ' - '))
+
+
+## plot
+
+dodge_value <- 0.9
+text_size = 12
+xlab_name = "Effect Size"
+
+ma_result_compare %>%
+  
+  ggplot(
+    aes(x = es.mean, 
+        y = ind_sub,
+        color = version)) +
+  geom_point(size = 2, position = position_dodge(dodge_value), show.legend = F) +
+  geom_errorbarh(aes(xmin = es.lower, xmax = es.upper), 
+                 height = 0.15, position=position_dodge(width = dodge_value), show.legend = T) +
+  geom_vline(xintercept = 0, linewidth = 0.6, color = 'red', alpha = 0.3) + 
+  facet_wrap(~tool_ind, scales = "free_y", ncol = 5) +
+  ## p value label
+  geom_text(aes(x = es.mean, label = p.star), vjust = 0.1, size = text_size/4, 
+            position=position_dodge(dodge_value), show.legend = F) +
+  ## es label
+  geom_text(aes(x = es.mean, label = round(es.mean, digits = 2)), 
+                vjust = 1.7, size = text_size/4, 
+                position=position_dodge(dodge_value), show.legend = F) +
+  labs(title = "", x = xlab_name, y = "") +
+  scale_color_brewer(name = '', type = 'qual', palette = 'Dark2') +  ## Colorblind Friendly
+  theme_bw() +
+  theme(legend.position = c(0.8, 0.1),
+        strip.text = element_text(size = 7), 
+        panel.grid.minor = element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+
+fname <- paste0(dir.fig, 'es_comb_', design, '_vs_', today, vv, '.png'); fname
+func_ggsave(fname, w = 7, h = 4, dpi = 300, save_png = T)
+```
+
