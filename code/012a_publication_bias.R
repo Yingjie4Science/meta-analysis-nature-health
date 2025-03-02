@@ -45,7 +45,8 @@ library(puniform)
 col.contour = c("gray75", "gray85", "gray95")
 
 
-
+# version 
+vx <- '_v2'
 
 
 ## 1. load data
@@ -86,7 +87,7 @@ for (f in fs) {
   
   
   # ========================
-  # 2. Egger’s Test (Statistical Test for Funnel Plot Asymmetry)
+  # 2.1 Egger’s Test (Statistical Test for Funnel Plot Asymmetry)
   # ========================
   
   # egger_test <- regtest(ma_smd, model = "lm")
@@ -108,19 +109,55 @@ for (f in fs) {
   # - If p < 0.05 → Significant bias detected
   # - If p > 0.05 → No significant bias
   
+  
+  # ========================
+  # 2.2. Compute Fail-Safe N
+  # ========================
+  fail_safe_n <- fsn(metafor_data$yi, metafor_data$sei, type = "Rosenthal")
+  
+  # Get the number of included studies
+  k <- length(metafor_data$yi)
+  
+  # Calculate Rosenthal’s threshold
+  threshold <- (5 * k) + 10
+  
+  # Print results
+  cat("Fail-Safe N:", fail_safe_n$fsnum, "\n")
+  cat("Threshold (5k + 10):", threshold, "\n")
+  
+  # Interpretation
+  if (fail_safe_n$fsnum > threshold) {
+    fail_safe_n_interpretation <- "Fail-Safe N is large, results are robust."
+    fail_safe_n_col <- 'blue'
+  } else {
+    fail_safe_n_interpretation <- "Fail-Safe N is small, potential publication bias."
+    fail_safe_n_col <- 'red'
+  }
+  print(fail_safe_n_interpretation)
 
+  
+  
   # ========================
   # 3. Trim-and-Fill Method (Correction for Missing Studies)
   # ========================
   trimfill_result <- trimfill(ma_smd)
   # summary(trimfill_result)
   
-  # Funnel Plot with Adjusted Effect Sizes
-  # Generate Adjusted Funnel Plot (Trim-and-Fill Method)
+  
+  ## Save data
+  f <- paste0(dir.output, 'ma_trimfill_', mh_tool, '_', ind, '.RDS'); f
+  saveRDS(trimfill_result, f)
+  
+  
+  ## Viz - Funnel Plot with Adjusted Effect Sizes
   # funnel_adjusted <- funnel(trimfill_result, main = "Trim-and-Fill Adjusted Funnel Plot", col = "red")
   
   
-  # Extract the original and adjusted effect sizes
+  
+  # ========================
+  # Extract data for viz
+  # ========================
+  ## Extract the original and adjusted effect sizes
   original_effect_size <- round(ma_smd$TE.random, 2)
   adj <- quantile(ma_smd$TE.random, 0.8)
   adjusted_effect_size <- round(trimfill_result$TE.random, 2)
@@ -134,7 +171,7 @@ for (f in fs) {
   # ========================
   # Combine both plots into one image
   # ========================
-  f <- paste0(dir.fig, 'publication_bias/Funnel_', mh_tool, '_', ind,  '.png'); f
+  f <- paste0(dir.fig, 'publication_bias/Funnel_', mh_tool, '_', ind, vx, '.png'); f
   png(f, width = 1200, height = 600)  # Save as PNG
   par(mfrow = c(1, 2))  # Arrange plots side by side
   
@@ -148,6 +185,7 @@ for (f in fs) {
   mtext(paste(mh_tool, ind, sep = ' - '), side = 3, line = 0.5, adj = 0.01, cex = 1.5)
   mtext(paste("Original Hedges' g =", original_effect_size), side = 3, line = -2, adj = 0.01, cex = 1.2)
   mtext(paste("Egger’s test:", egger_plab), side = 3, line = -4, adj = 0.02, cex = 1.2, col = egger_pcol)
+  mtext(fail_safe_n_interpretation, side = 3, line = -6, adj = 0.02, cex = 1.2, col = fail_safe_n_col)
   
   # Add Annotations to the Funnel Lines
   text(original_effect_size, y_upper, labels = "Mean Effect Size", pos = 3, cex = 1.1, col = "black")
