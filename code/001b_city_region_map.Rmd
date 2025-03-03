@@ -394,7 +394,7 @@ func_alluvial(data = dt.tool_ctr_flow, indicator_n_min = 5, labele_small = 1, fi
 ```
 
 
-```{r - ind + tool + region}
+```{r - tool + ind + region}
 library(tidyverse)
 
 
@@ -489,6 +489,8 @@ dt.ind.tool.region <- dt.ind.tool.ctr2 %>%
 ## - prep input for `ggalluvial` ---------------------------------------------------------
 dimension_levels = c('Indicator', 'Tool', 'Region')
 dimension_levels = c('Tool', 'Indicator', 'Region')
+dimension_labels = c('MH Tools', 'MH Indicators', 'Region')
+
 filename.postfix = paste(dimension_levels, collapse = "_") %>%
   paste0("3d_", .) %>%
   str_to_lower()
@@ -509,7 +511,7 @@ dtt  <- dt.ind.tool.region  %>%
   arrange(dimension) %>%
   dplyr::rename(freq = n) %>%
   dplyr::mutate(
-    dimension = factor(dimension, levels = dimension_levels),
+    dimension = factor(dimension, levels = dimension_levels, labels = dimension_labels),
     # layers = factor(layers, levels = org_levels)
     ) %>%
   group_by(layers) %>%
@@ -519,8 +521,10 @@ dtt  <- dt.ind.tool.region  %>%
 
 
 func_alluvial(data = dtt, indicator_n_min = 3, labele_small = 20, 
-              add_flow_label = T, 
-              w_p = 10, filename.postfix = filename.postfix)
+              add_flow_label = F, 
+              show_y_ticks = T,
+              w_p = 10, filename.postfix = filename.postfix) 
+
 
 # f <- paste0('mini-review_mh_indicator_tool_pairs_min', indicator_n_min, '_ctr', n_ctr, '_', today, '.png')
 # fname <- paste0(dir.fig, f); fname

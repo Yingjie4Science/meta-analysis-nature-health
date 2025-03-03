@@ -3,6 +3,7 @@ library(ggalluvial)
 
 #' @param indicator_n_min the minimum number of flow frequency to be included in the plot
 #' @param labele_small    the minimum number to have a label inside the stacked bars
+#' @param first_column    to add y-axis ticks and labels at each break point for the first column
 
 func_alluvial <- function(data, 
                           first_column = NA, 
@@ -69,7 +70,7 @@ func_alluvial <- function(data,
       legend.position = "none",
       plot.margin = margin(0, 0, 0, 0, "in"),
       panel.spacing = unit(0, "in"),
-      axis.title = element_blank(),
+      axis.title.x = element_blank(),
       axis.line = element_blank(),
       
       axis.ticks.x = element_blank(),
@@ -78,7 +79,8 @@ func_alluvial <- function(data,
         vjust = 10,
         margin = margin(t = 0, r = 0, b = 0, l = 0)
       )
-    )
+    ) +
+    ylab('Number of studies')
   
   
   ## Calculate cumulative values for the first column (stratum)
