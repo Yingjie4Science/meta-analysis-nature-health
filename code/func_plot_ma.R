@@ -2,16 +2,25 @@
 # install.packages(c("ggplot2", "metafor"))
 library(ggplot2)
 library(ggpubr)
+source('./code/func_color_bygroup.R')
 source('./code/func_ggsave.R')
 source('./code/func_make_gradient_bg.R')
 
 
+
+## colors
+color_mh_positive <- "#175E54"  
+color_mh_negative <- "#8C1515"
+
+color_mh_positive <- "#2166ac" 
+color_mh_negative <- "#b2182b" 
 
 # Create a forest plot-style ggplot
 
 plot_effect_size_overall <- function(
     data, 
     color_var = NULL, ## e.g.,  color_var = "tool"
+    legend_title = '',
     xlab_name = "Effect Size", 
     subgroup = NULL, 
     dodge_value = 0.9,
@@ -20,6 +29,7 @@ plot_effect_size_overall <- function(
     facet_scales = 'free',
     add_gradient_bg = T,
     add_vline_es = F,       ## if add vline for 0.2, 0.5, 0.8
+    reorder_y_subgroup = F, 
     text_size = 12,
     show_legend = F) {
   
@@ -35,13 +45,14 @@ plot_effect_size_overall <- function(
   gradient_bg <- make_gradient_bg(deg = 180, n = 500, cols = brewer.pal(9, "RdBu"))
   
   data <- data %>%
-    dplyr::mutate(n_lab = paste0('n = ', n_study),
-                  # I2_lab= paste0("I^{2} ==", I2*100, '~', "\"%\""),
-                  I2_lab=  sprintf("italic(I)^2 == %.2f", I2), 
-                  # I2_lab= paste0("I^{2} == ", I2)
-                  ind_sub = as.factor(ind_sub),
-                  positive = ifelse(es.mean > 0, 'Positive MH', 'Negative MH')
-                  )
+    dplyr::mutate(
+      n_lab = paste0('n = ', n_study),
+      # I2_lab= paste0("I^{2} ==", I2*100, '~', "\"%\""),
+      I2_lab = sprintf("italic(I)^2==%.2f", I2), 
+      # I2_lab= paste0("I^{2} == ", I2)
+      ind_sub = as.factor(ind_sub),
+      positive = ifelse(es.mean > 0, 'Positive MH', 'Negative MH')
+      )
   
   
   ## 1. if to include subgroup analysis --------------------------------------------------
@@ -65,14 +76,13 @@ plot_effect_size_overall <- function(
       p <- data %>%
         ggplot(., 
                aes(x = es.mean, 
-                   # y = ind_sub, 
-                   # y = reorder(ind_sub, desc(abs(es.mean))),
-                   y = reorder(ind_sub, desc(es.mean)),
+                   # y = ind_sub,                       ## default order
+                   y = reorder(ind_sub, desc(es.mean)), ## reorder by y
                ))
     }
     
     
-  ## 1.2 with subgroups  
+  ## 1.2 - with subgroups  
   } else {
     
     ##' To keep the order of each Category unchanged in the legend while sorting the y-axis values within each facet based on x values, 
@@ -88,20 +98,31 @@ plot_effect_size_overall <- function(
     ordering_info <- data %>%
       group_by(ind_sub) %>%
       arrange(es.mean) %>%
-      dplyr::mutate(subgroup_sorted = factor(subgroup, levels = unique(subgroup)))
+      dplyr::mutate(subgroup_sorted = factor(subgroup, levels = unique(subgroup))) %>%
+      ungroup()
     
     # Step 2: Merge sorted category information back into original data frame
     data <- data %>%
-      left_join(ordering_info %>% select(ind_sub, subgroup, subgroup_sorted), by = c("ind_sub", "subgroup"))
+      left_join(ordering_info %>% select(tool, ind_sub, subgroup, subgroup_sorted), by = c("tool", "ind_sub", "subgroup")) 
     
-    p <- data %>%
-      ##' plot
-      ggplot(., 
-             aes(x = es.mean, 
-                 # y = reorder(ind_sub, desc(es.mean)), # the largest effect on the top 
-                 y = subgroup_sorted, # the largest effect on the top
-                 color = !!sym(subgroup),  ## use color to distinguish tools
-                 ))
+    if(reorder_y_subgroup == T){
+      p <- data %>%
+        ggplot(., 
+               aes(x = es.mean, 
+                   y = subgroup_sorted,    ## reorder -- the largest effect on the top
+                   color = !!sym(subgroup),  ## use color to distinguish tools
+               ))
+    } else (
+      p <- data %>%
+        dplyr::select(-subgroup_sorted) %>%
+        dplyr::mutate(subgroup_sorted = factor(subgroup, levels = group_list)) %>%
+        ggplot(.,  
+               aes(x = es.mean, 
+                   y = subgroup_sorted, ## default order
+                   color = !!sym(subgroup)))
+    )
+    
+    
   }
   
   
@@ -133,30 +154,14 @@ plot_effect_size_overall <- function(
     # geom_text(aes(x = es.mean, label = paste0(round(es.mean, digits = 2), ' ', p.star)), 
     #           vjust = 1.7, size = 2.5, position=position_dodge(dodge_value), show.legend = F) +
     
-    ## p value label
+    ###' text labels for `p value` 
     geom_text(aes(x = es.mean, label = p.star), vjust = -0.3, size = text_size/4, position=position_dodge(dodge_value), show.legend = F) +
-    labs(title = "", x = xlab_name, y = "") +
-    
-    ## (1) when using color for tools
-    # labs(color = "MH Tools") +
-    # scale_color_brewer(type = 'qual', palette = 'Dark2') +  ## Colorblind Friendly
-    # guides(color = guide_legend(reverse=F)) +
-
-    ## (2) when using shape for tools and color for positive or negative aspects
-    labs(shape = "MH Tools") +
-    scale_color_manual(values = c("#8C1515", "#175E54")) + 
-    guides(color = F)  ## do not show color in legend
-    
-    # ## Mirror y-axis Labels Based on x Position
-    # theme(axis.text.y = element_blank()) +# Hide default y-axis text
-    # geom_text(data = data[data$es.mean < 0, ],  aes(label = ind_sub, x = min(data$es.mean) - 1), hjust = 1, size = 3, color = '#8C1515') +
-    # geom_text(data = data[data$es.mean >= 0, ], aes(label = ind_sub, x = max(data$es.mean) + 1), hjust = 0, size = 3, color = '#175E54') +
-    # scale_x_continuous(expand = expansion(mult = c(0.2, 0.2)))  ## add more space on the right for y-axis Labels
+    labs(title = "", x = xlab_name, y = "") 
   
   
   
   
-  ## 3. for non-subgroup analysis --------------------------------------------------------
+  ## 3.1 for non-subgroup analysis -------------------------------------------------------
   if (is.null(subgroup) & add_vline_es == T) { 
     p <- p +
       ### SMD effect threshold values: small - moderate - large
@@ -168,7 +173,7 @@ plot_effect_size_overall <- function(
       geom_vline(xintercept =  0.8, linewidth = 0.4, linetype = "dotted", color = "grey70") 
   } else if (is.null(subgroup) & add_vline_es == F) {
     p <- p +
-      ### effect size label
+      ###' text labels for `es`, `n`, `I2`
       geom_text(aes(x = es.mean, label = round(es.mean, digits = 2)), 
                 vjust = 1.7, size = text_size/4, 
                 position=position_dodge(dodge_value), show.legend = F) +
@@ -186,31 +191,46 @@ plot_effect_size_overall <- function(
     y_arrow <- 0    ## figure before 3/3/2025
     y_arrow <- 4.5  ## figure 
     x_arrow <- 2.0  ## figure, 1.5 before 3/3/2025
-    p <- 
-      p + 
+    p <- p + 
       annotate("segment", x = 0, xend =  x_arrow, 
                y = y_arrow, yend = y_arrow, 
-               colour = "#175E54", linewidth = .8, 
+               colour = color_mh_positive, linewidth = .8, 
                arrow = arrow(length = unit(0.1, "inches"), type = "closed")) +
       annotate("segment", x = 0, xend = -x_arrow, 
                y = y_arrow, yend = y_arrow, 
-               colour = "#8C1515", linewidth = .8, 
+               colour = color_mh_negative, linewidth = .8, 
                arrow = arrow(length = unit(0.1, "inches"), type = "closed")) +
       annotate("text", x = x_arrow-0.5,  y = y_arrow-0.0, 
-               label = "Increase in positive MH", colour = "#175E54", angle = 0, vjust = -1) +
+               label = "Increase in positive MH", colour = color_mh_positive, angle = 0, vjust = -1) +
       annotate("text", x = -x_arrow+0.8, y = y_arrow-0.6, 
-               label = "Reduction in negative MH",colour = "#8C1515", angle = 0, vjust = -1) +
+               label = "Reduction in negative MH",colour = color_mh_negative, angle = 0, vjust = -1) +
       #' Adjust the limits and aspect of the plot as needed
       #' clip off can ensure the full arrows can be shown on the axis
-      coord_cartesian(clip = "off", ylim = c(NA, NA))
+      coord_cartesian(clip = "off", ylim = c(NA, NA)) +
+      
+      ## (1) when using color for tools
+      # labs(color = legend_title) +
+      # scale_color_brewer(type = 'qual', palette = 'Dark2') +  ## Colorblind Friendly
+      # guides(color = guide_legend(reverse=F)) +
+      
+      ## (2) when using shape for tools and color for positive or negative aspects
+      labs(shape = legend_title) +
+      scale_color_manual(values = c(color_mh_negative, color_mh_positive)) + 
+      guides(color = F)  ## do not show color in legend
+    
+      # ## Mirror y-axis Labels Based on x Position
+      # theme(axis.text.y = element_blank()) +# Hide default y-axis text
+      # geom_text(data = data[data$es.mean < 0, ],  aes(label = ind_sub, x = min(data$es.mean) - 1), hjust = 1, size = 3, color = '#8C1515') +
+      # geom_text(data = data[data$es.mean >= 0, ], aes(label = ind_sub, x = max(data$es.mean) + 1), hjust = 0, size = 3, color = '#175E54') +
+      # scale_x_continuous(expand = expansion(mult = c(0.2, 0.2)))  ## add more space on the right for y-axis Labels
     
     
-    
+    ## 3.2 - for subgroup plots ---------------------------------------------------------- 
     ## remove sample size for plot of subgroup results
   } else {
     p <- p +
       
-      ## effect size label
+      ###' text labels for `es`, `n`, `I2`
       # geom_text(aes(#x = es.mean/abs(es.mean)*(-2),
       #               # x = es.mean*1.1,
       #               x = es.mean,
@@ -220,31 +240,47 @@ plot_effect_size_overall <- function(
       #           position=position_dodge(dodge_value), show.legend = F) +
 
       ##' add `n` label
-      geom_text(aes(x = ifelse(es.mean<0, 
-                               es.lower,
-                               es.upper
-                               # ifelse((es.upper-es.lower)>3, 2.5*es.mean/abs(es.mean), es.lower), 
-                               # ifelse((es.upper-es.lower)>3, 2.5*es.mean/abs(es.mean), es.upper)
-                               ), 
-                    hjust = ifelse((es.upper-es.lower)>2, 
-                                   ifelse(es.mean<0, -(es.mean+es.lower)/20, -(es.mean)/30), 
-                                   ifelse(abs(es.lower-es.mean)<0.5, -0.8*es.mean/abs(es.mean), -0.3*es.mean/abs(es.mean))),
+      # geom_text(aes(x = ifelse(es.mean<0, 
+      #                          es.lower,
+      #                          es.upper
+      #                          # ifelse((es.upper-es.lower)>3, 2.5*es.mean/abs(es.mean), es.lower), 
+      #                          # ifelse((es.upper-es.lower)>3, 2.5*es.mean/abs(es.mean), es.upper)
+      #                          ), 
+      #               hjust = ifelse((es.upper-es.lower)>2, 
+      #                              ifelse(es.mean<0, -(es.mean+es.lower)/20, -(es.mean)/30), 
+      #                              ifelse(abs(es.lower-es.mean)<0.5, -0.8*es.mean/abs(es.mean), -0.3*es.mean/abs(es.mean))),
+      #               label = n_lab),  
+      #           hjust = -0.2,
+      #           vjust = -0.5, size = text_size/6, position=position_dodge(dodge_value), show.legend = F) +
+      
+      geom_text(aes(x = text_position,
+                    # hjust = ifelse(es.mean < group_mean, 1.1, -0.2),
+                    hjust = hjust_position,
                     label = n_lab),  
-                vjust = -0.5, size = text_size/6, position=position_dodge(dodge_value), show.legend = F) +
+                # hjust = hjust_position,
+                color = 'gray30', fontface = "italic",
+                vjust = -0.5, size = text_size/7, position=position_dodge(dodge_value), show.legend = F) +
       
       ##' add `I2` label
-      geom_text(aes(x = ifelse(es.mean<0, 
-                               es.lower,
-                               es.upper
-                               # ifelse((es.upper-es.lower)>3, 2.5*es.mean/abs(es.mean), es.lower), 
-                               # ifelse(es.upper>3, 2.5*es.mean/abs(es.mean), es.upper)
-                               ), 
-                    hjust = ifelse((es.upper-es.lower)>2, 
-                                   ifelse(es.mean<0, -(es.mean+es.lower)/20, -(es.mean)/30), 
-                                   ifelse(abs(es.lower-es.mean)<0.5, -0.8*es.mean/abs(es.mean), -0.3*es.mean/abs(es.mean))),
-                    label = ifelse(n_study>1, I2_lab, NA)), 
-                vjust = 1, size = text_size/6, position=position_dodge(dodge_value), show.legend = F, parse = T) +
-      scale_x_continuous(expand = expansion(mult = c(0.2, 0.25))) 
+      # geom_text(aes(x = ifelse(es.mean<0,
+      #                          es.lower,
+      #                          es.upper
+      #                          # ifelse((es.upper-es.lower)>3, 2.5*es.mean/abs(es.mean), es.lower),
+      #                          # ifelse(es.upper>3, 2.5*es.mean/abs(es.mean), es.upper)
+      #                          ),
+      #               hjust = ifelse((es.upper-es.lower)>2,
+      #                              ifelse(es.mean<0, -(es.mean+es.lower)/20, -(es.mean)/30),
+      #                              ifelse(abs(es.lower-es.mean)<0.5, -0.8*es.mean/abs(es.mean), -0.3*es.mean/abs(es.mean))),
+      #               label = ifelse(n_study>1, I2_lab, NA)),
+      #           vjust = 1, size = text_size/6, position=position_dodge(dodge_value), show.legend = F, parse = T) +
+      geom_text(aes(x = text_position,
+                    hjust = hjust_position,
+                    label = ifelse(n_study>1, I2_lab, NA)),
+                # hjust = hjust_position,
+                color = 'gray30', 
+                vjust = 1, size = text_size/7, position=position_dodge(dodge_value), show.legend = F, parse = T) +
+      
+      scale_x_continuous(expand = expansion(mult = c(0.5, 0.5))) 
   }
   
   
@@ -255,7 +291,7 @@ plot_effect_size_overall <- function(
       ## (1) when using color for tools
       # scale_color_brewer(palette = "Dark2", direction = 1) ## Colorblind Friendly
       ## (2) when using shape for tools and color for positive or negative aspects
-      scale_color_manual(values = c("#8C1515", "#175E54")) +  
+      scale_color_manual(values = c(color_mh_negative, color_mh_positive)) +  
       guides(color = 'none')  ## do not show color in legend
       
   } else {
