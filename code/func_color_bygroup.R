@@ -40,7 +40,7 @@ nature_type_color <- c(
   '#b2df8a', # "Greenspace - Grassland"
   '#ab6c28', # "Greenspace - Farmland"
   '#fb9a99', # "Greenspace - Park"
-  '#aaff00', # "Greenspace - Garden" (forest disturbed before/at 2006)
+  '#f0c571', # "Greenspace - Garden" (forest disturbed before/at 2006)
   '#beaed4', # "Greenspace - Street trees"
   '#79ffd2', # "Greenspace - Green roof/wall"
   
