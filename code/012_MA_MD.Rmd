@@ -154,7 +154,7 @@ cat('... Working on', mh_tool, '... \n\t', sub_indicator_selected, '\n\n')
 
 ##' plot for double-checking
 show_raw_data_in_forest <- F
-add_subgroup_analysis   <- T
+add_subgroup_analysis   <- F
 
 
 subgroups <- c(
@@ -175,17 +175,21 @@ for (subgroup_select in subgroups) {
   ma_result.subgroup.pool <- data.frame()
   ma_result.subgroup.each <- data.frame()
   
+  ## some tools measure 1 + mh indicators
   for (sub_ind_i in sub_indicator_selected) {
     
     exp_sub_mods_md_o2i <- exp_sub_mods_md_o2 %>%
       dplyr::filter(MH_indicator_o2 == sub_ind_i) 
     
+    ##' this step is to create a copy of the targeted subgroup to make it easy to call the 
+    ##'   column for the next step analysis
     if (add_subgroup_analysis == T) {
       exp_sub_mods_md_o2i <- exp_sub_mods_md_o2i %>%
         dplyr::mutate(subgroup_selected = !!sym(subgroup_select)) %>%
         dplyr::filter(!is.na(subgroup_selected)) %>%
         as.data.frame()
     } else {
+      ### add a fake column with NULL value as well 
       exp_sub_mods_md_o2i <- exp_sub_mods_md_o2i %>%
         dplyr::mutate(subgroup_selected = 'NULL') %>%
         as.data.frame()
@@ -195,7 +199,10 @@ for (subgroup_select in subgroups) {
     ## define figure height based on the number of rows/data 
     height_cm <- nrow(exp_sub_mods_md_o2i)
     
-    ## run MA
+    
+    ## --------------------------------------------------------------------------------- #
+    ## run MA without subgroup analysis ***
+    ## --------------------------------------------------------------------------------- #
     ma_smd <- meta::metacont(
       data = exp_sub_mods_md_o2i,
       n.e = e_n,

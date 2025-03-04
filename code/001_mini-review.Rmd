@@ -16,6 +16,9 @@ output:
 save_plot <- T
 library(dplyr)
 source('./code/func_clean_nature.R')
+
+## Load directories
+source("./code/_pkgs_dirs.R")
 ```
 
 

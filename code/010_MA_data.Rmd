@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 remove(list = ls())
 
 
-## Load common packages
+## Load common packages and functions
 source("./code/_pkgs_dirs.R")
 
 ## Additional packages
@@ -54,9 +54,6 @@ source('./code/func_to_sd.R')
 source('./code/func_fill_c2_from_c1.R')
 source('./code/func_cell_mean.R')
 
-source('./code/func_plot_freq.R')
-source('./code/func_alluvial.R')
-source('./code/func_ggsave.R')
 ```
 
 

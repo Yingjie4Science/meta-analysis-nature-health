@@ -5,7 +5,7 @@ library(RColorBrewer)
 
 make_gradient_bg <- function(deg = 45, n = 100, cols = blues9, col_rev = T, alpha = 0.5) {
   cols <- colorRampPalette(cols)(n + 1)
-  cols <- scales::alpha(cols, 0.5)
+  cols <- scales::alpha(cols, alpha)
   
   if (col_rev == T) {
     cols <- rev(cols)

@@ -15,8 +15,6 @@ remove(list = ls())
 
 ## Load directories
 source("./code/_pkgs_dirs.R")
-dir.raw   <- "./data/0005-covidence_export/data extraction/"
-dir_share <- 'G:/Shared drives/Urban nature-health/projects/meta-analysis/figures/'
 
 
 ## Additional packages
@@ -244,7 +242,12 @@ de_sm <- de %>%
   as.data.frame()
 names(de_sm)
 
-##
+
+## raw consensus data 
+f <- './data/included_papers_for_systematic_review_rawdata.csv'
+readr::write_csv(x = de, file = f)
+
+## keep paper info and remove data
 f <- './data/included_papers_for_systematic_review.csv'
 readr::write_csv(x = de_sm, file = f)
 ```
@@ -289,7 +292,7 @@ de_sm_data <- data.frame(Value = unlist(strsplit(de_sm_list$nature_type, ";"))) 
 de_sm_nature_count <- de_sm_data %>%
   count(Value) %>%
   arrange(desc(n)) %>%
-  mutate(Percentage = round(n / sum(n) * 100, 1))  # Step 3: Calculate percentage
+  mutate(Percentage = round(n / sum(n, na.rm = T) * 100, 1))  # Step 3: Calculate percentage
 
 sum(de_sm_nature_count$n)
 
