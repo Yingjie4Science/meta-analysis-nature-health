@@ -19,6 +19,7 @@ plot_effect_size_overall <- function(
     facet_ncol = 4,
     facet_scales = 'free',
     add_gradient_bg = T,
+    add_vline_es = F,       ## if add vline for 0.2, 0.5, 0.8
     text_size = 12,
     show_legend = F) {
   
@@ -38,11 +39,14 @@ plot_effect_size_overall <- function(
                   # I2_lab= paste0("I^{2} ==", I2*100, '~', "\"%\""),
                   I2_lab=  sprintf("italic(I)^2 == %.2f", I2), 
                   # I2_lab= paste0("I^{2} == ", I2)
-                  ind_sub = as.factor(ind_sub)
+                  ind_sub = as.factor(ind_sub),
+                  positive = ifelse(es.mean > 0, 'Positive MH', 'Negative MH')
                   )
   
   
   ## 1. if to include subgroup analysis --------------------------------------------------
+  
+  ## 1.1 - no subgroup 
   if (is.null(subgroup)) { 
     
     if (!is.null(color_var)) {
@@ -50,10 +54,12 @@ plot_effect_size_overall <- function(
         ggplot(., 
                aes(x = es.mean, 
                    # y = ind_sub, 
-                   # y = reorder(ind_sub, desc(abs(es.mean))), # the largest effect on the top
+                   # y = reorder(ind_sub, es.mean),          # the largest effect on the top
                    y = reorder(ind_sub, desc(es.mean)),      # the largest effect on the top
                    group = .data[[color_var]],
-                   color = .data[[color_var]]
+                   shape = .data[[color_var]],       ## use point shape to distinguish tools
+                   # color = .data[[color_var]]      ## use point shape to distinguish tools
+                   color = positive,
                    ))
     } else {
       p <- data %>%
@@ -66,6 +72,7 @@ plot_effect_size_overall <- function(
     }
     
     
+  ## 1.2 with subgroups  
   } else {
     
     ##' To keep the order of each Category unchanged in the legend while sorting the y-axis values within each facet based on x values, 
@@ -93,7 +100,7 @@ plot_effect_size_overall <- function(
              aes(x = es.mean, 
                  # y = reorder(ind_sub, desc(es.mean)), # the largest effect on the top 
                  y = subgroup_sorted, # the largest effect on the top
-                 color = !!sym(subgroup),
+                 color = !!sym(subgroup),  ## use color to distinguish tools
                  ))
   }
   
@@ -120,32 +127,47 @@ plot_effect_size_overall <- function(
     ## 
     # scale_x_continuous(limits = c(-x_limit_max, x_limit_max)) + 
   
-    geom_point(aes(x = es.mean), size = 2, position = position_dodge(dodge_value), show.legend = show_legend) +
+    geom_point(aes(x = es.mean), size = 2.5, position = position_dodge(dodge_value), show.legend = show_legend) +
     geom_errorbarh(aes(xmin = es.lower, xmax = es.upper), 
                    height = 0.15, position=position_dodge(width = dodge_value), show.legend = F) +
     # geom_text(aes(x = es.mean, label = paste0(round(es.mean, digits = 2), ' ', p.star)), 
     #           vjust = 1.7, size = 2.5, position=position_dodge(dodge_value), show.legend = F) +
     
     ## p value label
-    geom_text(aes(x = es.mean, label = p.star), vjust = 0.1, size = text_size/4, position=position_dodge(dodge_value), show.legend = F) +
+    geom_text(aes(x = es.mean, label = p.star), vjust = -0.3, size = text_size/4, position=position_dodge(dodge_value), show.legend = F) +
     labs(title = "", x = xlab_name, y = "") +
-    scale_color_brewer(type = 'qual', palette = 'Dark2') +  ## Colorblind Friendly
-    guides(color = guide_legend(reverse=F)) 
+    
+    ## (1) when using color for tools
+    # labs(color = "MH Tools") +
+    # scale_color_brewer(type = 'qual', palette = 'Dark2') +  ## Colorblind Friendly
+    # guides(color = guide_legend(reverse=F)) +
+
+    ## (2) when using shape for tools and color for positive or negative aspects
+    labs(shape = "MH Tools") +
+    scale_color_manual(values = c("#8C1515", "#175E54")) + 
+    guides(color = F)  ## do not show color in legend
+    
+    # ## Mirror y-axis Labels Based on x Position
+    # theme(axis.text.y = element_blank()) +# Hide default y-axis text
+    # geom_text(data = data[data$es.mean < 0, ],  aes(label = ind_sub, x = min(data$es.mean) - 1), hjust = 1, size = 3, color = '#8C1515') +
+    # geom_text(data = data[data$es.mean >= 0, ], aes(label = ind_sub, x = max(data$es.mean) + 1), hjust = 0, size = 3, color = '#175E54') +
+    # scale_x_continuous(expand = expansion(mult = c(0.2, 0.2)))  ## add more space on the right for y-axis Labels
   
   
   
   
   ## 3. for non-subgroup analysis --------------------------------------------------------
-  if (is.null(subgroup)) { 
+  if (is.null(subgroup) & add_vline_es == T) { 
     p <- p +
       ### SMD effect threshold values: small - moderate - large
-      geom_vline(xintercept = -0.2, linewidth = 0.4, linetype = "dotted", color = "grey70") + ## , linewidth = 0.5
+      # geom_vline(xintercept = -0.2, linewidth = 0.4, linetype = "dotted", color = "grey70") + ## , linewidth = 0.5
       geom_vline(xintercept = -0.5, linewidth = 0.4, linetype = "dotted", color = "grey70") +
       geom_vline(xintercept = -0.8, linewidth = 0.4, linetype = "dotted", color = "grey70") +
-      geom_vline(xintercept =  0.2, linewidth = 0.4, linetype = "dotted", color = "grey70") +
+      # geom_vline(xintercept =  0.2, linewidth = 0.4, linetype = "dotted", color = "grey70") +
       geom_vline(xintercept =  0.5, linewidth = 0.4, linetype = "dotted", color = "grey70") +
-      geom_vline(xintercept =  0.8, linewidth = 0.4, linetype = "dotted", color = "grey70") +
-      
+      geom_vline(xintercept =  0.8, linewidth = 0.4, linetype = "dotted", color = "grey70") 
+  } else if (is.null(subgroup) & add_vline_es == F) {
+    p <- p +
       ### effect size label
       geom_text(aes(x = es.mean, label = round(es.mean, digits = 2)), 
                 vjust = 1.7, size = text_size/4, 
@@ -161,12 +183,23 @@ plot_effect_size_overall <- function(
     
     
     ## add annotated arrows and text
+    y_arrow <- 0    ## figure before 3/3/2025
+    y_arrow <- 4.5  ## figure 
+    x_arrow <- 2.0  ## figure, 1.5 before 3/3/2025
     p <- 
       p + 
-      annotate("segment", x = 0, xend =  1.5, y = 0, yend = 0, colour = "#175E54", linewidth = .8, arrow = arrow(length = unit(0.1, "inches"), type = "closed")) +
-      annotate("segment", x = 0, xend = -1.5, y = 0, yend = 0, colour = "#8C1515", linewidth = .8, arrow = arrow(length = unit(0.1, "inches"), type = "closed")) +
-      annotate("text", x = 1.2,  y = 0, label = "Increase positive", colour = "#175E54", angle = 0, vjust = -1) +
-      annotate("text", x = -1.2, y = 0, label = "Reduce negative",   colour = "#8C1515", angle = 0, vjust = -1) +
+      annotate("segment", x = 0, xend =  x_arrow, 
+               y = y_arrow, yend = y_arrow, 
+               colour = "#175E54", linewidth = .8, 
+               arrow = arrow(length = unit(0.1, "inches"), type = "closed")) +
+      annotate("segment", x = 0, xend = -x_arrow, 
+               y = y_arrow, yend = y_arrow, 
+               colour = "#8C1515", linewidth = .8, 
+               arrow = arrow(length = unit(0.1, "inches"), type = "closed")) +
+      annotate("text", x = x_arrow-0.5,  y = y_arrow-0.0, 
+               label = "Increase in positive MH", colour = "#175E54", angle = 0, vjust = -1) +
+      annotate("text", x = -x_arrow+0.8, y = y_arrow-0.6, 
+               label = "Reduction in negative MH",colour = "#8C1515", angle = 0, vjust = -1) +
       #' Adjust the limits and aspect of the plot as needed
       #' clip off can ensure the full arrows can be shown on the axis
       coord_cartesian(clip = "off", ylim = c(NA, NA))
@@ -215,17 +248,30 @@ plot_effect_size_overall <- function(
   }
   
   
+  
+  ## Color parameter
   if (!is.null(color_var)) {
-    p <- p + scale_color_brewer(palette = "Dark2", direction = 1) ## Colorblind Friendly
+    p <- p + 
+      ## (1) when using color for tools
+      # scale_color_brewer(palette = "Dark2", direction = 1) ## Colorblind Friendly
+      ## (2) when using shape for tools and color for positive or negative aspects
+      scale_color_manual(values = c("#8C1515", "#175E54")) +  
+      guides(color = 'none')  ## do not show color in legend
+      
   } else {
     p <- p
   }
   
+  
+  ## Overall theme 
   p <- p +
     # theme_minimal() +
-    theme(panel.grid.major.y = element_blank(),
+    theme(axis.text = element_text(color = "black"),
+          # panel.grid.major.y = element_blank(),
+          panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
           panel.grid.minor.y = element_blank())
+  
   
   ## when the number of subgroup is too large, it is better to facet the plot
   if (facet_bygroup == T) {

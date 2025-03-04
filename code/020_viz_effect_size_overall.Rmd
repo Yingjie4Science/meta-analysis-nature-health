@@ -26,7 +26,7 @@ source('./code/func_plot_ma.R')
 
 
 ##' an extra post fix for figure's version control
-vv <- "v2"
+vv <- "v3"
 # vv <- "vPr" ## simplified figure version for presentation
 ```
 
@@ -91,12 +91,13 @@ for (f in fs) {
 
 ## Save as xlsx
 writexl::write_xlsx(x = ma_result_all, path = './data/0302-MA-output/ma_result_all.xlsx')
+readr::write_csv(x = ma_result_all, file = './data/0302-MA-output/ma_result_all.csv')
 saveRDS(ma_result_all, file = './data/0302-MA-output/ma_result_all.RDS')
 ```
 
 
-```{r - overall}
-
+```{r - plot - overall}
+source('./code/func_plot_ma.R')
 f <- './data/0302-MA-output/ma_result_all.RDS'
 ma_result_all <- readRDS(file = f)
 
@@ -132,13 +133,13 @@ p <- data %>%
   plot_effect_size_overall(data = ., 
                            color_var = 'tool', 
                            text_size = 11,
+                           add_gradient_bg = F,
                            show_legend = T) +
   theme(legend.position = c(0.85, 0.85),
-        # legend.spacing.y = unit(0, 'cm'),
+        legend.spacing.y = unit(2, 'cm'),
         legend.spacing.x = unit(0.2, 'cm'),
         legend.key.size = unit(0.2, 'cm'),
-        plot.margin = margin(t=0, r=0, b=0, l=0, "pt")) +
-  guides(color = guide_legend(title="MH Tools"))
+        plot.margin = margin(t=0, r=0, b=0, l=0, "pt")) 
 
 
 if(design == 'obs_exp') {
@@ -146,7 +147,7 @@ if(design == 'obs_exp') {
     geom_text(aes(label = design, 
                   fontface = ifelse(design=='obs', "bold.italic", "italic"),
                   family = "serif",
-                  x = -2.8),
+                  x = -2.0),
               vjust = 0.5, show.legend = F, color ='gray50') +
     scale_x_continuous(limits = c(-x_limit_max, x_limit_max))
 } else {
@@ -166,8 +167,11 @@ if(vv == "vPr") {
 } else {
   ## add hline to seperate postive vs negative indicators
   p <- p +
-    annotate("segment", x = -x_limit_max, xend = x_limit_max, y = 4.5, colour = "gray70", size = 0.5)
-  hh <- 5.5/2/6*n_ind
+    annotate("segment", x = -x_limit_max, xend = x_limit_max, y = 4.5, 
+             # colour = "gray70", 
+             colour = NA, 
+             size = 0.5)
+  hh <- 5.5/2/6*n_ind + 1.5
 }
 
 p
@@ -347,7 +351,7 @@ for (subgroup_select in subgroups) {
     color_bygroup = age_group_color; 
     group_list = age_group_list
   } else if(subgroup_select == 'density_class'){
-    group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
+    group_title = 'Urban density'
     main_cat = c('Low density', 'Medium density', 'High density')
     mixed_cat = unique(ma_result_all_sub$subgroup) %>% sort()
     group_list = c(main_cat, unique(mixed_cat[!(mixed_cat %in% main_cat)]))
@@ -542,7 +546,7 @@ for (subgroup_select in subgroups) {
     color_bygroup = age_group_color;
     group_list = age_group_list
   } else if(subgroup_select == 'density_class'){
-    group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
+    group_title = 'Urban density'
     main_cat = c('Low density', 'Medium density', 'High density')
     mixed_cat = unique(ma_result_each_i$subgroup) %>% sort()
     group_list = c(main_cat, unique(mixed_cat[!(mixed_cat %in% main_cat)]))
