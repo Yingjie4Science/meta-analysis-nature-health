@@ -22,11 +22,18 @@ vv <- 'R1'
 
 ## Data
 
-```{r}
+```{r - covidence}
 dir   <- "./data/0005-covidence_export/Quality assessment/"
 
 csv <- "review_278532_20241012170155.csv" 
 csv <- "review_278532_20250218115356.csv" ## 2025-02-17, R1
+
+
+## qa data only
+f <- paste0(dir, csv)
+
+# ## qa + all other data
+# f <- paste0(dir.raw, 'review_278532_20250227113241.csv')
 
 
 t <- basename(csv) %>% gsub('review_278532_', '', .) %>%
@@ -34,7 +41,7 @@ t <- basename(csv) %>% gsub('review_278532_', '', .) %>%
   as.POSIXct(.,format="%Y%m%d%H%M%S") 
 t
 
-q1 <- readr::read_csv(file = paste0(dir, csv), show_col_types = F) %>%
+q1 <- readr::read_csv(file = f, show_col_types = F) %>%
   dplyr::mutate(date = t) %>%
   dplyr::rename(
     'id' = 'Covidence #',
@@ -42,17 +49,28 @@ q1 <- readr::read_csv(file = paste0(dir, csv), show_col_types = F) %>%
   ) %>%
   dplyr::mutate(id = as.character(id)) %>%
   dplyr::select(!matches("supporting text|^---")) %>%
+  dplyr::select(!matches("Model ")) %>%
   arrange(id, Reviewer) %>%
   as.data.frame()
 
 
 
-## or read data from the pre-cleaned dataset 
-f <- paste0("./data/0302-MA-output/", "df_cleaned.RDS")
-q2 <- readRDS(f) %>%
-  dplyr::select(any_of(names(q1)), Tools)
+## or read data from the pre-cleaned dataset -- filter out rows without effect size data
+# f <- paste0("./data/0302-MA-output/", "df_cleaned.RDS")
+# q2 <- readRDS(f) %>%
+#   dplyr::select(any_of(names(q1)), Tools)
 
 
+## this raw data include rows without effect size
+f <- './data/included_papers_for_systematic_review_rawdata.csv'
+q2 <- readr:::read_csv(f, show_col_types = F) %>%
+  dplyr::select(!matches("supporting text|^---")) %>%
+  dplyr::select(!matches("Model ")) %>%
+  # dplyr::select(any_of(names(q1)), Tools) %>%
+  dplyr::select(!matches("Description of|^---")) %>%
+  dplyr::select(any_of(names(q1)), `Study design`, Tools) %>%
+  dplyr::mutate(id = as.character(id)) %>%
+  as.data.frame()
 
 
 ## which data to use for further analysis?
@@ -60,12 +78,17 @@ q <- q1 %>%
   dplyr::left_join(x = q1, 
             y = q2 %>% select(id, Tools), 
             by = 'id')
+
+
+## to add data
+q2_study_design_add <- q2 %>%
+  filter(is.na(`Study design`))
 ```
 
 
 
 
-```{r - study design}
+```{r - google sheet}
 library(googlesheets4)
 link <- 'https://docs.google.com/spreadsheets/d/1MZlUT5USAyydOE4CJQma3ZrmsYTwryUV3DbW5nZxL84/edit?usp=sharing'
 
@@ -80,7 +103,7 @@ source('./code/_parameters.R')
 # to load `tool_selected_rct`
 
 gs_all <- gs %>%
-  dplyr::filter(!exclude %in% c('yes')) %>%
+  dplyr::filter(!exclude %in% c('yes', 'TBD')) %>%
   # Desired tools to sort at the top
   dplyr::mutate(rank = case_when(
     Tool %in% tool_selected_rct ~ 1,
@@ -90,12 +113,17 @@ gs_all <- gs %>%
   select(-rank)  %>% # Remove the temporary rank column
   dplyr::distinct(id, .keep_all = T) %>%
   dplyr::mutate(`study design` = gsub(' - crossover|-crossover', '', `study design`)) %>%
+  dplyr::mutate(design_class = case_when(
+    `study design` %in% c('Cross sectional study', 'Observational') ~ 'Observational',
+    str_detect(`study design`, 'Longitudinal') ~ 'Observational',
+    T ~ "Experimental"
+  )) %>%
+  dplyr::select(1:`study design`, design_class, everything()) %>%
   as.data.frame()
 
 
 gs_exp <- gs_all %>%
-  dplyr::filter(!`study design` %in% c('Cross sectional study', 'Observational')) %>%
-  dplyr::filter(str_detect(`study design`, 'Longitudinal', negate = T)) 
+  dplyr::filter(design_class == 'Experimental') 
 
 ## save a copy 
 f <- './data/0302-MA-output/gsheet_qa_experimental_studies.CVS'
@@ -108,7 +136,7 @@ cat('\n\n There are \n\t', nrow(gs_all), 'included studies (obs + exp), and \n\t
 
 
 
-```{r - study design - viz}
+```{r - gs - viz}
 
 library(scales)
 library(ggrepel)
@@ -120,19 +148,25 @@ library(ggrepel)
 
 ## plot the stats of different study design
 gs_all_stat <- gs_all %>%
-  group_by(`study design`) %>%
+  group_by(`study design`, design_class) %>%
   tally() %>%
-  dplyr::mutate(perc = `n` / sum(`n`)) %>% 
+  ungroup() %>%
+  dplyr::mutate(perc = n / sum(n, na.rm = T)) %>% 
   arrange(perc) %>%
-  dplyr::mutate(labels = scales::percent(perc))
+  dplyr::mutate(labels = scales::percent(perc, accuracy = 0.1))
+
+n_total <- sum(gs_all_stat$n, na.rm = T)
 
 
 p1 <- gs_all_stat %>%
-  ggplot(aes(x = reorder(`study design`, perc), y = n)) + 
+  ggplot(aes(x = reorder(`study design`, perc), y = n, fill = design_class)) + 
   geom_col() +
   geom_text(aes(label = n), vjust = 0.5, hjust = -.3) +
   xlab('')+
-  coord_flip()
+  labs(fill='') +
+  coord_flip() +
+  theme(legend.position = c(0.8, 0.2), legend.key.size = unit(0.15, 'in'),
+        legend.background = element_rect(fill = NA))
 # p1
 
 
@@ -140,7 +174,6 @@ p1 <- gs_all_stat %>%
 p2 <- gs_all_stat %>%
   ggplot(data= ., aes(x="", y=n, fill=`study design`)) +
   geom_col() +
-  
   geom_text(aes(label = labels), 
             position = position_stack(vjust = 0.5),
             size=3) +
