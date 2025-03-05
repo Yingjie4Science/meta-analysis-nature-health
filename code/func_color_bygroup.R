@@ -3,6 +3,7 @@
 ##'   add named colors to each category to keep the color consistent 
 
 library(rcartocolor)
+library(RColorBrewer)
 # display_carto_all(colorblind_friendly = TRUE)
 
 

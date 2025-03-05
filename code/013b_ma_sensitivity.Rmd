@@ -107,27 +107,33 @@ for (subgroup_select in subgroups) {
         sd.e = e_sd_r,
         sd.c = c_sd_r,
         studlab = study_label, #study_label,
-        
         sm = "SMD", 
         method.smd = "Hedges",
         fixed = FALSE,
         random = TRUE,
         method.tau = "REML",
         hakn = TRUE, 
-        
         ## 
         subgroup = NULL,  ## Grouping results by a variable, default = NULL
-        
         ## if subgroup is not NULL, include the two lines below
         # subgroup = subgroup_selected,
         # control = list(maxiter = 1000, stepadj = 0.5),
-        
         title = paste('mh_tool', collapse = '; '))
       
       
       
       ###' 3.2 Perform sensitivity analysis
-      ma_smd.inf <- dmetar::InfluenceAnalysis(ma_smd, random = T)
+    
+      tryCatch({
+        # Simulate an error -- loop to continue even if an error occurs 
+        ma_smd.inf <- dmetar::InfluenceAnalysis(ma_smd)
+        print(paste("Iteration", "completed"))
+      }, error = function(e) {
+        print(paste("Error in iteration", ":", e$message))
+        # Continue the loop
+      })
+      
+      
       
       # Convert influence analysis results to a dataframe
       n1_res_df <- data.frame(
@@ -148,23 +154,45 @@ for (subgroup_select in subgroups) {
       
       
       ###' 3.3. n-10 sensitivity Test -- Robust Analysis ---------------------------------
+      
+      param <- 5  # Start with default parameter
+      success <- FALSE  # Flag to track if the function runs successfully
+      
+      while (!success) {  # Keep trying until no error
+        result <- tryCatch({
+          
+          # Run the function
+          n10_res_df <- func_sens_n10_smd_subgroup(
+            meta_model = ma_smd,
+            data = df.i,
+            iterations = 100, random_remove_n = param,
+            mh_tool = mh_tool, sub_ind_i = sub_ind_i, subgroup_select = subgroup_select)
+          
+          # If successful, set flag to TRUE
+          success <- TRUE
+          cat("Iteration:", "| Parameter:", param, "| Success\n")
+          
+          n10_res_df  # Return the successful result
+        }, error = function(e) {
+          # Handle error: Reduce parameter but keep it >= 2
+          param <- max(param - 1, 2)
+          cat("Iteration:", "| Error occurred:", e$message, "| Changing param to", param, "\n")
+          success <- FALSE  # Keep retrying
+          NULL  # Return NULL when an error occurs
+        })
+      }
 
-      n10_res_df <- func_sens_n10_smd_subgroup(
-        meta_model = ma_smd,
-        data = df.i,
-        iterations = 100, random_remove_n = 5,
-        mh_tool = mh_tool, sub_ind_i = sub_ind_i, subgroup_select = subgroup_select)
       
-      
-      
+    
       ###' 3.4. bind data
       ma_sens_n1_subgroup  <- rbind(ma_sens_n1_subgroup, n1_res_df)
       ma_sens_n10_subgroup <- rbind(ma_sens_n10_subgroup, n10_res_df)
       
     }
     
-    
-  }}
+  }
+  
+  }
 
 
 
@@ -174,8 +202,10 @@ saveRDS(ma_sens_n1_subgroup, file = f)
 f <- paste0(dir.output, paste('ma_sens_n10_subgroup', paste(mh_tool, collapse = "_"), '.rds', sep = '_')); f
 saveRDS(ma_sens_n10_subgroup, file = f)
 
-
 ```
+
+
+
 
 
 ## Load data
