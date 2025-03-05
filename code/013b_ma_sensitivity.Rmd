@@ -1,0 +1,601 @@
+---
+title: "Untitled"
+author: "Yingjie"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(stringr)
+library(dmetar)   ## InfluenceAnalysis()
+```
+
+
+
+## Run sens
+
+### Input data
+
+```{r}
+
+
+##' 0. loop each tool <-- **lines 1-140** <-- `012_MA_MD.Rmd`
+
+subgroups <- c(
+  'subgroup_design',
+  'exposure_o2',
+  'nature_type_o2', 
+  'Region',
+  'Season',
+  'density_class',
+  'age_group', 'gender_group', 'duration_group')
+
+```
+
+
+
+### Run analysis
+
+```{r}
+
+# ## test data
+# subgroup_select <- 'age_group'
+# data <- exp_sub_mods_md_o2 ## from 012
+# sub_indicator_selected <- unique(exp_sub_mods_md_o2$MH_indicator_o2)
+# sub_ind_i <- "Negative Affect"
+
+
+## ------------------------------------------------------------------------------------- #
+
+source('./code/func_sensitivity_analysis.R')
+## sensitivity analysis results
+ma_sens_n1_subgroup  <- data.frame()
+ma_sens_n10_subgroup <- data.frame()
+
+
+
+## 1. loop subgroup
+for (subgroup_select in subgroups) {
+  
+  n_group <- unique(exp_sub_mods_md_o2[subgroup_select]) %>% nrow()
+  
+  
+  ## 2. loop indicator
+  ## some tools measure 1 + mh indicators
+  for (sub_ind_i in sub_indicator_selected) {
+    
+    cat('\n\n', sub_ind_i, '---\n')
+    
+    exp_sub_mods_md_o2i <- exp_sub_mods_md_o2 %>%
+      dplyr::filter(MH_indicator_o2 == sub_ind_i) 
+    
+    exp_sub_mods_md_o2i <- exp_sub_mods_md_o2i %>%
+      dplyr::mutate(subgroup_selected = !!sym(subgroup_select)) %>%
+      dplyr::filter(!is.na(subgroup_selected)) %>%
+      as.data.frame()
+    
+    
+    ###' calculate the number of studies in each subgroup,
+    ###'  and remove categories with less than 10 studies
+    exp_sub_mods_md_o2i <- exp_sub_mods_md_o2i %>%
+      group_by(across(all_of(subgroup_select))) %>%
+      add_tally() %>%
+      dplyr::filter(n>12) 
+    
+    
+    
+    ## 3. loop elements in each subgroup
+    subgroup_elements <- unique(exp_sub_mods_md_o2i['subgroup_selected']) %>% unlist() 
+    # subgroup_elements_i <- subgroup_elements[1,]
+    
+    for (subgroup_elements_i in subgroup_elements) {
+      print(subgroup_elements_i)
+      
+      df.i <- exp_sub_mods_md_o2i %>%
+        filter(subgroup_selected == subgroup_elements_i)
+      
+      ###' 3.1. MA model
+      ma_smd <- meta::metacont(
+        data = df.i,
+        n.e = e_n,
+        n.c = c_n,
+        mean.e = e_mean,
+        mean.c = c_mean,
+        sd.e = e_sd_r,
+        sd.c = c_sd_r,
+        studlab = study_label, #study_label,
+        
+        sm = "SMD", 
+        method.smd = "Hedges",
+        fixed = FALSE,
+        random = TRUE,
+        method.tau = "REML",
+        hakn = TRUE, 
+        
+        ## 
+        subgroup = NULL,  ## Grouping results by a variable, default = NULL
+        
+        ## if subgroup is not NULL, include the two lines below
+        # subgroup = subgroup_selected,
+        # control = list(maxiter = 1000, stepadj = 0.5),
+        
+        title = paste('mh_tool', collapse = '; '))
+      
+      
+      
+      ###' 3.2 Perform sensitivity analysis
+      ma_smd.inf <- dmetar::InfluenceAnalysis(ma_smd, random = T)
+      
+      # Convert influence analysis results to a dataframe
+      n1_res_df <- data.frame(
+        
+        ## basic data
+        tool = paste(mh_tool, collapse = '; ', sep = ), 
+        ind_sub = sub_ind_i, 
+        group_name = subgroup_select,
+        subgroup = subgroup_elements_i,
+        
+        ## new data
+        study       = ma_smd.inf$Data$Author, # ma_smd$studlab,  # Study labels
+        es.n1       = ma_smd.inf$Data$effect,  # Effect sizes when each study is omitted
+        es.n1.lower = ma_smd.inf$Data$lower,   # Lower CI bound
+        es.n1.upper = ma_smd.inf$Data$upper    # Upper CI bound
+      )
+      
+      
+      
+      ###' 3.3. n-10 sensitivity Test -- Robust Analysis ---------------------------------
+
+      n10_res_df <- func_sens_n10_smd_subgroup(
+        meta_model = ma_smd,
+        data = df.i,
+        iterations = 100, random_remove_n = 5,
+        mh_tool = mh_tool, sub_ind_i = sub_ind_i, subgroup_select = subgroup_select)
+      
+      
+      
+      ###' 3.4. bind data
+      ma_sens_n1_subgroup  <- rbind(ma_sens_n1_subgroup, n1_res_df)
+      ma_sens_n10_subgroup <- rbind(ma_sens_n10_subgroup, n10_res_df)
+      
+    }
+    
+    
+  }}
+
+
+
+## sensitivity data
+f <- paste0(dir.output, paste('ma_sens_n1_subgroup', paste(mh_tool, collapse = "_"), '.rds', sep = '_')); f
+saveRDS(ma_sens_n1_subgroup, file = f)
+f <- paste0(dir.output, paste('ma_sens_n10_subgroup', paste(mh_tool, collapse = "_"), '.rds', sep = '_')); f
+saveRDS(ma_sens_n10_subgroup, file = f)
+
+
+```
+
+
+## Load data
+
+```{r paged.print=FALSE}
+dir <- 'G:/My Drive/NatCap/projects/Meta/meta-analysis-nature-health/data/0302-MA-output/'
+
+sens_n1  <- readRDS(file = paste0(dir, 'ma_sens_n1_subgroup_PANAS_.rds')) %>%
+  group_by(tool, ind_sub, group_name) %>%
+  mutate(n_subcat = n_distinct(subgroup)) %>%
+  ungroup() %>%
+  rename('SMD' = 'es.n1')
+sens_n10 <- readRDS(file = paste0(dir, 'ma_sens_n10_subgroup_PANAS_.rds')) %>%
+  group_by(tool, ind_sub, group_name) %>%
+  mutate(n_subcat = n_distinct(subgroup)) %>%
+  ungroup() %>%
+  rename('SMD' = 'es.n10')
+
+
+
+
+sens_n1 %>%
+  ## to ensure for one group, there are at least two subcategories in the group 
+  filter(n_subcat > 1) %>%
+  group_by(tool, ind_sub, group_name, subgroup) %>%
+  tally() %>%
+  as.data.frame() %>%
+  arrange(tool, ind_sub, group_name)
+
+
+
+sens_n10 %>%
+  ## to ensure for one group, there are at least two subcategories in the group 
+  filter(n_subcat > 1) %>%
+  group_by(tool, ind_sub, group_name, subgroup) %>%
+  tally() %>%
+  as.data.frame() %>%
+  arrange(tool, ind_sub, group_name)
+
+
+## choose a data for next step -----------------------------------------------------------
+sens_data <- sens_n1  %>% filter(n_subcat > 1) ; sens_lab <- 'ma_sens_n1_subgroup'
+sens_data <- sens_n10 %>% filter(n_subcat > 1) ; sens_lab <- 'ma_sens_n10_subgroup'
+
+# subgroups <- unique(sens_n1$subgroup)
+subgroups <- unique(sens_data$group_name); subgroups
+```
+
+
+
+```{r}
+ind_sub_levels <- c(
+  ## // negative aspect
+  "TMD", 
+  "Anxiety",            # POMS / STAI
+  "Fatigue", "Confusion", "Anger", 
+  "Depression",         # --- POMS
+  "Stress",             # PSS
+  "Negative Affect",    # PANAS
+  
+  ## // positive aspect 
+  "Positive Affect",
+  "Restorative Effect", # ROS
+  "Vigor",              # --- POMS
+  "Vitality"            # SVS
+)
+```
+
+
+```{r - loop run}
+
+## test 
+subgroup_select <- "age_group" 
+
+
+## run real data
+source('./code/_pkgs_dirs.R')
+source('code/func_comparing_means_Dunns.R')
+source('code/func_color_bygroup.R')
+
+for (subgroup_select in subgroups) {
+  
+  ma_result_each_i <- sens_data  %>%
+    dplyr::mutate(ind_sub = factor(ind_sub, levels = ind_sub_levels)) %>%
+    # dplyr::filter(tool == 'PANAS') %>%
+    # dplyr::filter(ind_sub == 'Negative Affect') %>%
+    dplyr::filter(group_name == subgroup_select) %>%
+    dplyr::filter(!stringr::str_detect(pattern = ";|from window|residential|participatory", string = subgroup)) %>%
+    dplyr::mutate(subgroup = gsub('L4 - | in nature|L5 - nature ', '', subgroup))
+  
+  ##' Use factor to keep consistent order of the groups
+  ##' 1. decide factor levels, and color scheme 
+  if(subgroup_select == 'nature_type_o2'){
+    group_title = str_to_sentence(gsub('_|_o2', ' ', subgroup_select)) %>% trimws()
+    color_bygroup = nature_type_color; 
+    group_list = nature_type_list
+  } else if(subgroup_select == 'age_group'){
+    group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
+    color_bygroup = age_group_color;
+    group_list = age_group_list
+  } else if(subgroup_select == 'density_class'){
+    group_title = 'Urban density'
+    main_cat = c('Low density', 'Medium density', 'High density')
+    mixed_cat = unique(ma_result_each_i$subgroup) %>% sort()
+    group_list = c(main_cat, unique(mixed_cat[!(mixed_cat %in% main_cat)]))
+    color_bygroup = func_color_bygroup(df = ma_result_each_i, column_name = 'subgroup') 
+  } else if(subgroup_select == 'gender_group'){
+    group_title = str_to_sentence(gsub('_', ' ', subgroup_select))
+    color_bygroup = gender_group_color;
+    group_list = gender_group_list
+  } else if(subgroup_select == 'duration_group'){
+    group_title = 'Duration in nature (minutes)'
+    color_bygroup = duration_group_color; 
+    group_list = duration_group_list
+  } else if(subgroup_select == 'Season'){
+    group_title = str_to_sentence(gsub('_|_o2', ' ', subgroup_select)) %>% trimws()
+    main_seasons = c('Spring', 'Summer', 'Fall', 'Winter')
+    mixed_season = unique(ma_result_each_i$subgroup) %>% sort()
+    group_list = c(main_seasons, unique(mixed_season[!(mixed_season %in% main_seasons)]))
+    color_bygroup = func_color_bygroup(df = ma_result_each_i, column_name = 'subgroup') 
+  } else if(subgroup_select == 'Region'){
+    group_title = subgroup_select
+    color_bygroup = region_color;
+    group_list = region_list
+  } else {
+    # next
+    group_title = str_to_sentence(gsub('_|_o2', ' ', subgroup_select)) %>% trimws()
+    group_list = unique(ma_result_each_i$subgroup) %>% sort()
+    color_bygroup = func_color_bygroup(df = ma_result_each_i, column_name = 'subgroup')
+  }
+  
+  ##' 2. modify the factor levels
+  # group_list <- unique(ma_result_each_i$subgroup) %>% sort()
+  ma_result_each_i <- ma_result_each_i %>%
+    dplyr::mutate(subgroup = factor(x = subgroup, levels = group_list))
+  
+  
+  ## run 1 -- the initial function with CLD annotations
+  # source('code/func_comparing_means_cld.R')
+  # func_test_dif(df = ma_result_each_i, value = 'SMD', group = 'subgroup', facet_by = 'ind_sub')
+  # fname <- paste0(dir.fig, 'es_comb_subgroup_', subgroup_select, '_TestDiff_', today, '_cld', vv, '.png'); print(fname)
+  # func_ggsave(fname, w = 7, h = 6, save_png = T)
+  
+  
+  ## run 2 -- an updated function 
+  source('code/func_comparing_means_Dunns.R')
+  which_test = 'dunn'
+  func_test_dif_dunn2(df = ma_result_each_i, value = 'SMD', group = 'subgroup', 
+                      which_test, ## "dunn" or "wilcoxon",
+                      facet_by = 'ind_sub')
+  fname <- paste0(dir.fig, paste(sens_lab, subgroup_select, today, which_test, sep = '_'), '.png'); print(fname)
+  func_ggsave(fname, w = 7, h = 6, save_png = T)
+}
+
+## test 
+# subgroup_select <- 'nature_type_o2'
+```
+
+
+
+
+
+
+## Test
+
+```{r}
+library(metafor)  # Meta-analysis package
+set.seed(123)     # Set seed for reproducibility
+
+
+# Simulated dataset
+data <- data.frame(
+  study = paste0("Study_", 1:50),
+  yi = rnorm(50, mean = 0.3, sd = 0.2),  # Effect sizes
+  vi = rnorm(50, mean = 0.05, sd = 0.01) # Variance
+)
+# Fit meta-analysis model
+res <- rma(yi, vi, data = data, method = "REML") 
+
+
+f <- "./data/0301-MA-input/sub_PANAS_cleaned.csv"
+dat <- read_csv(f, show_col_types = F) 
+
+
+sub_ind_i = "Negative Affect"
+
+
+
+dat_i <- dat %>%
+  mutate(study = paste0(`Study ID`, '_', model_id)) %>%
+  filter(age_group == 'Young adults') %>%
+  dplyr::filter(MH_indicator_o2 == sub_ind_i)
+  
+unique(data$MH_indicator_o2)
+
+
+
+
+data <- metafor::escalc(
+    data=dat_i,
+    measure="SMD", 
+    m1i=c_mean, sd1i=c_sd_r, n1i=c_n,
+    m2i=e_mean, sd2i=e_sd_r, n2i=e_n)
+  
+  
+# Finally, a random-effects model can be fitted to these data with:
+# Fit meta-analysis model
+res <- rma(yi, vi, data = data, method = "REML", digits=3) 
+
+```
+
+
+```{r - Influence Analysis}
+inf_analysis <- influence(res)
+# print(inf_analysis)
+plot(inf_analysis)
+
+
+# Identify influential studies
+cutoff <- 4 / length(data$yi)
+influential_studies <- which(inf_analysis$inf$cook.d > cutoff)
+
+# Remove them from the dataset
+data_clean <- data[-influential_studies, ]
+
+# Re-run meta-analysis
+res_updated <- rma(yi, vi, data = data_clean, method = "REML")
+
+# Compare results
+summary(res)
+summary(res_updated)
+```
+
+
+```{r - Influence Analysis - 2}
+# if (!require("devtools")) {
+#   install.packages("devtools")
+# }
+# devtools::install_github("MathiasHarrer/dmetar")
+library(dmetar)
+
+
+# Convert the metafor model to a meta object
+meta_obj <- metagen(TE = yi, seTE = sqrt(vi), data = data, sm = "SMD", random = T, studlab = study)
+
+meta_obj <- meta::metacont(
+      data = data,
+      n.e = e_n,
+      n.c = c_n,
+      mean.e = e_mean,
+      mean.c = c_mean,
+      sd.e = e_sd_r,
+      sd.c = c_sd_r,
+      studlab = study_label, #study_label,
+      
+      sm = "SMD", 
+      method.smd = "Hedges",
+      fixed = FALSE,
+      random = TRUE,
+      method.tau = "REML",
+      hakn = TRUE, 
+      subgroup = NULL,  ## Grouping results by a variable, default = NULL
+      title = paste('mh_tool', collapse = '; '))
+
+
+# Run Influence Analysis
+m.gen.inf <- InfluenceAnalysis(meta_obj, random = T)
+
+# plot(m.gen.inf)
+
+plot(m.gen.inf, "es") 
+# plot(m.gen.inf, "i2")
+
+
+
+## ggplot2 Version of Influence Analysis Plot --------------------------------------------
+# Convert influence analysis results to a dataframe
+n1_res <- data.frame(
+  study = meta_obj$studlab,  # Study labels
+  effect_size = m.gen.inf$Data$effect,  # Effect sizes when each study is omitted
+  lower = m.gen.inf$Data$lower,  # Lower CI bound
+  upper = m.gen.inf$Data$upper   # Upper CI bound
+)
+
+# # Create the ggplot
+# ggplot(n1_res, aes(x = reorder(study, -effect_size), y = effect_size)) +
+#   geom_point(color = "blue", size = 3) +  # Effect size points
+#   geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, color = "black") +  # Confidence intervals
+#   geom_hline(yintercept = meta_obj$TE.random, linetype = "dashed", color = "red", size = 1) +  # Overall effect size line
+#   labs(
+#     title = "Influence Analysis: Effect Sizes When Each Study is Omitted",
+#     x = "Study",
+#     y = "Effect Size (Hedges' g)"
+#   ) +
+#   coord_flip() +
+#   theme_minimal() +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for readability
+
+```
+
+
+## Leave-one-out analysis
+
+```{r - data}
+
+# Leave-one-out analysis
+leave_one_out <- leave1out(res)
+
+leave_one_out_df <- data.frame(
+  study_id = leave_one_out$slab,
+  estimate = leave_one_out$estimate
+)
+  
+
+
+# # Display results
+# print(leave_one_out)
+# plot(leave_one_out)
+
+
+# dfbetas_res <- dfbetas(res)
+# print(dfbetas_res)
+
+
+```
+
+
+
+
+```{r - plot}
+# Extract effect sizes with one study removed
+study_names <- data$study
+effect_sizes <- leave_one_out$estimate  # Extract recalculated effect sizes
+
+# Create a plot
+plot(1:length(effect_sizes), effect_sizes, type = "b", pch = 19,
+     xlab = "Removed Study", ylab = "Effect Size (Hedges' g)",
+     main = "Leave-One-Out Sensitivity Analysis", xaxt = "n", col = "blue")
+
+# Add study names as labels
+axis(1, at = 1:length(effect_sizes), labels = study_names, las = 2, cex.axis = 0.7)
+
+# Add reference line for the original effect size
+abline(h = res$b, col = "red", lty = 2, lwd = 2)
+legend("topright", legend = "Original Effect Size", col = "red", lty = 2, lwd = 2)
+
+```
+
+
+
+Final Takeaways
+  Leave-one-out analysis ensures no single study dominates the results.
+  n-10 analysis ensures that findings hold even after removing multiple studies.
+
+## n-10 Sensitivity Test -- Robust Analysis
+
+```{r}
+### --------------------------------------------------------------------------------------
+set.seed(123)  # Set seed for reproducibility
+
+# Function to perform n-10 analysis
+n10_analysis <- function(meta_model, data, iterations = 100, n_out = 5) {
+  results <- numeric(iterations)
+  
+  for (i in 1:iterations) {
+    sample_indices <- sample(1:nrow(data), size = (nrow(data) - n_out), replace = FALSE)
+    temp_data <- data[sample_indices, ]
+    # temp_res <- rma(yi, vi, data = temp_data, method = "REML")
+    temp_res <- meta::metacont(
+      data = temp_data,
+      n.e = e_n,
+      n.c = c_n,
+      mean.e = e_mean,
+      mean.c = c_mean,
+      sd.e = e_sd_r,
+      sd.c = c_sd_r,
+      studlab = study_label, #study_label,
+      
+      sm = "SMD", 
+      method.smd = "Hedges",
+      fixed = FALSE,
+      random = TRUE,
+      method.tau = "REML",
+      hakn = TRUE, 
+      subgroup = NULL,  ## Grouping results by a variable, default = NULL
+      title = paste('mh_tool', collapse = '; '))
+    
+    results[i] <- temp_res$TE.random
+  }
+  
+  return(results)
+}
+
+# Run n-10 analysis 100 times
+n10_res <- n10_analysis(meta_obj, data, iterations = 100)
+
+# Convert results to a dataframe for ggplot2
+n10_res_df <- data.frame(es_n10 = n10_res)
+
+
+# # Plot distribution of effect sizes after n-10 analysis
+# hist(n10_res, main = "Distribution of Effect Sizes (n-10 Analysis)",
+#      xlab = "Effect Size (Hedges' g)", col = "lightblue", border = "black")
+# abline(v = res$b, col = "red", lwd = 2, lty = 2)  # Add original effect size line
+
+
+```
+
+
+```{r}
+
+# Create the histogram with ggplot
+ggplot(n10_res_df, aes(x = es_n10)) +
+  geom_histogram(binwidth = 0.03, fill = "lightblue", color = "black", alpha = 0.7) +
+  geom_vline(xintercept = meta_obj$TE.random, color = "red", linetype = "dashed", size = 1.2) +
+  labs(
+    title = "Distribution of Effect Sizes (n-10 Analysis)",
+    x = "Effect Size (Hedges' g)",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+```
+
